@@ -392,7 +392,7 @@ def _minify_buildout(src, whitelist=[]):
 def _suppress_warnings(src, whitelist=[]):
     for path in _get_all_js_files(src, whitelist):
         content = ""
-        with open(path, "r", encoding="utf_8_sig") as f:
+        with open(path, "r", encoding="utf_8_sig", newline="") as f:
             content = f.read()
         if content:
             with open(path, "w", encoding="utf_8_sig", newline="") as f:
@@ -938,14 +938,16 @@ def cmd_call(*args):
         return "", str(error), -1
 
 def shell_call(shell, filter_fn, *args):
-    out, err = subprocess.Popen(shell,
-                                stdout=subprocess.PIPE,
-                                stdin=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                universal_newlines=True,
-                                encoding="utf-8",
-                                errors="replace").communicate(" ".join(args))
-    return filter_fn(out) if filter_fn else out, err
+    process = subprocess.Popen(shell,
+                               stdout=subprocess.PIPE,
+                               stdin=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
+                               universal_newlines=True,
+                               encoding="utf-8",
+                               errors="replace")
+    out, err = process.communicate(" ".join(args))
+    # Same shape as cmd_call: "shell" below is bound to either of them.
+    return (filter_fn(out) if filter_fn else out), err, process.returncode
 
 def detect_vcs(path="."):
     """Name the version control system holding `path`.
@@ -1063,7 +1065,7 @@ def build(args):
             if args.tag == "tip":
                 args.tag = "HEAD"
             print("getting status")
-            status, err = shell("git", "status")
+            status, err, _ = shell("git", "status")
             if err:
                 print(err)
                 return
@@ -1081,7 +1083,7 @@ def build(args):
             shell = cmd_call
             cmds = HG_COMMANDS
 
-        out, err = shell(*cmds["update"](args.tag))
+        out, err, _ = shell(*cmds["update"](args.tag))
         err = err.strip(" \n\t")
         if err:
             # It's expected to be in detached head state here.
@@ -1091,7 +1093,7 @@ def build(args):
 
         if out:
             print(out.strip())
-        out, err = shell(*cmds["get_hash"](args.tag))
+        out, err, _ = shell(*cmds["get_hash"](args.tag))
         if err:
             print("abort", err)
             return
@@ -1192,7 +1194,7 @@ def build(args):
                 for name, lang in client_lang_files:
                     path = os.path.join(dest, name)
                     content = ""
-                    with open(path, "r", encoding="utf_8_sig") as f:
+                    with open(path, "r", encoding="utf_8_sig", newline="") as f:
                         content = f.read()
                     if content:
                         with open(path, "w", encoding="utf_8_sig", newline="") as f:
@@ -1244,7 +1246,7 @@ def build(args):
                     start_rev = last_log.split(".")[1]
 
         if start_rev:
-            out, err = shell(*cmds["log"](start_rev, args.tag))
+            out, err, _ = shell(*cmds["log"](start_rev, args.tag))
             if err:
                 print("could not create a log\n", err)
             else:
@@ -1252,15 +1254,13 @@ def build(args):
                     url_commits = profile.get("url_commits")
                     bts_url = profile.get("bts_url")
                     out = log2html(out, args.tag, rev, short_hash, url_commits, bts_url)
-                with open(os.path.join(log_dir, log_name), "w") as f:
-                    if not is_git and os.name == "nt":
-                        f.write(out)
-                    else:
-                        f.write(out)
+                with open(os.path.join(log_dir, log_name), "w",
+                          encoding="utf-8", newline="") as f:
+                    f.write(out)
                     print("log %s created" % log_name)
         else:
-            print("not possible to find a start revision",)
-            print("provide a start revision with the -l flag")
+            print("not possible to find a start revision, "
+                  "provide a start revision with the -l flag")
 
     if not args.skip_build:
         AUTHORS = os.path.join(src, '..', 'AUTHORS')
@@ -1270,7 +1270,7 @@ def build(args):
     tip = "" if args.no_vcs else (current_branch if is_git else "tip")
     if tip:
         print("update to %s" % tip)
-        out, err = shell(*cmds["update"](tip))
+        out, err, _ = shell(*cmds["update"](tip))
         print(err if err else out)
 
 def setup_subparser(subparsers, config):
