@@ -16,6 +16,16 @@
 # build or a submodule. Pass any further df2 arguments after the script name.
 set -eu
 
+# Build the repository this script lives in, not whatever directory the caller
+# happened to be in. df2's profile carries the relative paths "src" and
+# "build", so without this the script only works from the repository root and
+# fails elsewhere with a traceback naming a src directory that is not ours.
+#
+# readlink resolves a symbolic link to the script, so that a link on a PATH
+# directory still builds the right tree; where it is unavailable or fails this
+# falls back to the plain behaviour.
+cd "$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")"
+
 DF2="${DF2:-df2}"
 
 # Only a bare command can be probed; DF2 may be a whole invocation, as in the
