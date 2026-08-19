@@ -295,6 +295,21 @@ window.cls.Client = function()
     handle_fallback.call(new XMLHttpRequest(), version);
   };
 
+  /**
+    * Replace the whole view with a single message and no connection controls.
+    *
+    * Used when the client has connected but cannot go on, so that the reason
+    * is visible in the window rather than only in opera.postError, which in
+    * this application would post it to a console the user cannot reach.
+    *
+    * @param {String} msg the message to display, already localized.
+    * @return {void}
+    */
+  this.show_info = function(msg)
+  {
+    show_info(msg, 0);
+  };
+
   this.create_top_level_views = function(services)
   {
     var layouts = ui_framework.layouts;
