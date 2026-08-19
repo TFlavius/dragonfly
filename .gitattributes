@@ -1,0 +1,29 @@
+# Line endings are fixed here so that a build is reproducible.
+#
+# Without this the checkout decides: git's core.autocrlf, which defaults to
+# true on Windows, converts text files on the way out, and the build tool
+# preserves whatever it reads. The same commit then produced a different
+# bundle on each platform, measured at 2,451,396 bytes on Linux against
+# 2,533,278 on Windows for script/dragonfly.js, the difference being the
+# carriage returns. TFlavius/opera#1160 has to produce that bundle
+# reproducibly and TFlavius/opera#1162 verifies a published hash against it,
+# so neither can work while the bytes depend on where the checkout happened.
+#
+# LF rather than CRLF because that is what the overwhelming majority of the
+# tree already is, and because the client is served to a browser rather than
+# opened in a Windows editor.
+#
+# The source files carry a UTF-8 BOM by design; the build verifies it with
+# verify_bom. Normalising line endings does not touch a BOM.
+* text=auto eol=lf
+
+# Images are declared rather than left to the heuristic, so that a file whose
+# bytes happen to look like text is never rewritten.
+*.png binary
+*.gif binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.zip binary
+*.woff binary
+*.ttf binary
