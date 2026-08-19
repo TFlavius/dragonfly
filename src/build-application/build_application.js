@@ -36,28 +36,31 @@ if( window.app )
 window.app = {};
 
 /**
-  * If the connected host has a core intergation point prior to 168 the
-  * application will reload an according older application version.
-  * Core integartion 168 supports the following service versions:
+  * The services the client cannot start without, and the lowest version of
+  * each that it knows how to drive.
   *
-  *   scope:               1.1
-  *   console-logger:      2.0
-  *   cookie-manager:      1.1.1
-  *   document-manager:    1.1
-  *   http-logger:         2.0
-  *   exec:                2.1
-  *   window-manager:      2.1
-  *   widget-manager:      1.0
-  *   resource-manager:    1.1
-  *   prefs:               1.0
-  *   ecmascript:          1.0
-  *   ecmascript-debugger: 6.6
+  * This used to be a check on the host's core integration point, the third
+  * component of Scope.HostInfo's coreVersion, against 167. That number is an
+  * Opera build counter and says nothing directly about the protocol; hosts
+  * outside Opera's own release line report a value that fails the comparison
+  * however capable they are, and the client then asked for a compatible build
+  * from a distribution server that no longer exists.
   *
-  * "http-logger" is not present in this build.
-  * It is replaced by the "resource-manager".
+  * The service list in Scope.HostInfo carries what the client actually needs,
+  * so it is checked directly. STP/1 is not checked here: cls.Client only asks
+  * for HostInfo once the service list has advertised "stp-1".
   *
+  * Everything not listed here degrades on its own. build_and_enable_services
+  * looks for a builder with a matching major version and leaves the service
+  * unimplemented when there is none, and the views that need it check
+  * is_implemented.
   */
-window.app.MIN_SUPPORTED_CORE_VERSION = 167;
+window.app.REQUIRED_SERVICES =
+{
+  "scope": "1.1",
+  "window-manager": "2.0",
+  "ecmascript-debugger": "6.0",
+};
 
 window.cls.MessageMixin.apply(window.app); // Give the app object message handling powers
 
@@ -105,30 +108,65 @@ window.app.build_application = function(on_services_created, on_services_enabled
     return match && match[0];
   }
 
+  /**
+   * List the required services the host does not offer in a usable version.
+   *
+   * A service is usable when its major version is the one the client's
+   * builders are written against and its minor version is at least the one
+   * listed in window.app.REQUIRED_SERVICES. Minor versions only ever append
+   * optional fields to a message, so a higher one is always acceptable.
+   *
+   * @param {Object} service_descriptions name to {name, version, index}, as
+   *        built by cls.Scope["1.1"].handleHostInfo from Scope.HostInfo.
+   * @return {Array} human readable descriptions of the unusable services, in
+   *         the order they are declared. Empty when the host is supported.
+   */
+  var _unsupported_services = function(service_descriptions)
+  {
+    var unsupported = [];
+    for (var name in window.app.REQUIRED_SERVICES)
+    {
+      var required = window.app.REQUIRED_SERVICES[name].split(".").map(Number);
+      var description = service_descriptions[name];
+      if (!description)
+      {
+        unsupported.push(name + " (not offered)");
+        continue;
+      }
+      var actual = description.version.split(".").map(Number);
+      if (actual[0] != required[0] || (actual[1] || 0) < required[1])
+      {
+        unsupported.push(name + " " + description.version +
+                         " (needs " + required[0] + "." + required[1] + ")");
+      }
+    }
+    return unsupported;
+  }
+
   var on_host_info_callback = function(service_descriptions, hello_message)
   {
-    var core_version = hello_message.coreVersion;
-    var core_integration = core_version && parseInt(core_version.split('.')[2]);
-    if (core_integration >= window.app.MIN_SUPPORTED_CORE_VERSION)
+    var unsupported = _unsupported_services(service_descriptions);
+    if (unsupported.length)
     {
-      new window.cls.ScopeInterfaceGenerator().get_interface(service_descriptions,
-        function(map)
-        {
-          window.message_maps = map;
-          window.cls.ServiceBase.populate_map(map);
-          build_and_enable_services(service_descriptions, map);
-        },
-        function(error)
-        {
-          opera.postError(error.message);
-        },
-        Boolean(window.ini.debug)
-      );
+      var detail = ui_strings.S_INFO_NO_COMPATIBLE_VERSION + " " + unsupported.join(", ");
+      opera.postError(ui_strings.S_DRAGONFLY_INFO_MESSAGE + detail);
+      window.client.show_info(detail);
+      return;
     }
-    else
-    {
-      window.client.handle_fallback("ci-168");
-    }
+
+    new window.cls.ScopeInterfaceGenerator().get_interface(service_descriptions,
+      function(map)
+      {
+        window.message_maps = map;
+        window.cls.ServiceBase.populate_map(map);
+        build_and_enable_services(service_descriptions, map);
+      },
+      function(error)
+      {
+        opera.postError(error.message);
+      },
+      Boolean(window.ini.debug)
+    );
   };
 
   /**
