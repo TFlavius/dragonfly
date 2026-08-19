@@ -41,15 +41,15 @@ _img_exts = (".png", ".jpg", ".gif")
 _script_ele = u"<script src=\"%s\"/>\n"
 _style_ele = u"<link rel=\"stylesheet\" href=\"%s\"/>\n"
 _base_url = u"<base href=\"%s\" />\n"
-_re_command = re.compile("""\s?<!--\s+command\s+(?P<command>\w+)\s+"?(?P<target>.*?)"?\s*(?:if\s+(?P<neg>not)?\s*(?P<cond>\S+?))?\s*-->""")
-_re_comment = re.compile("""\s*<!--.*-->\s*""")
-_re_script = re.compile("\s?<script +src=\"(?P<src>[^\"]*)\"")
-_re_css = re.compile("\s?<link +rel=\"stylesheet\" +href=\"(?P<href>[^\"]*)\"/>")
-_re_condition = re.compile("\s+if\s+(not)? (.*)")
-_re_client_lang_file = re.compile("^client-([a-zA-Z\-]{2,5})\.xml$")
+_re_command = re.compile(r"""\s?<!--\s+command\s+(?P<command>\w+)\s+"?(?P<target>.*?)"?\s*(?:if\s+(?P<neg>not)?\s*(?P<cond>\S+?))?\s*-->""")
+_re_comment = re.compile(r"""\s*<!--.*-->\s*""")
+_re_script = re.compile(r"\s?<script +src=\"(?P<src>[^\"]*)\"")
+_re_css = re.compile(r"\s?<link +rel=\"stylesheet\" +href=\"(?P<href>[^\"]*)\"/>")
+_re_condition = re.compile(r"\s+if\s+(not)? (.*)")
+_re_client_lang_file = re.compile(r"^client-([a-zA-Z\-]{2,5})\.xml$")
 _re_linked_source = re.compile(r"(?:src|href)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')")
 _re_strict = re.compile(r"(\"|')use strict\1;?\s*")
-_re_branch = re.compile("# On branch\s*(.*)")
+_re_branch = re.compile(r"# On branch\s*(.*)")
 _re_short_hash = re.compile(r"([0-9-a-z]{12})", re.I)
 _re_bts_dfl = re.compile(r"DFL-\d*")
 LOG_BODY = """<!doctype html>
@@ -324,10 +324,9 @@ def _add_license(root, license_path="include-license.txt", whitelist=[]):
         tmpfd, tmppath = tempfile.mkstemp(".tmp", "dfbuild.")
         tmpfile = os.fdopen(tmpfd, "w", encoding="utf_8_sig", newline="")
 
-        wrapped = tmpfile
-        wrapped.write(license)
-        wrapped.write("\n")
-        wrapped.write(source.read())
+        tmpfile.write(license)
+        tmpfile.write("\n")
+        tmpfile.write(source.read())
         source.close()
         tmpfile.close()
         # copyfile rather than copy: shutil.copy also copies the mode, and
@@ -393,10 +392,10 @@ def _minify_buildout(src, whitelist=[]):
 def _suppress_warnings(src, whitelist=[]):
     for path in _get_all_js_files(src, whitelist):
         content = ""
-        with open(path, 'rb') as f:
+        with open(path, "r", encoding="utf_8_sig") as f:
             content = f.read()
         if content:
-            with open(path, 'wb') as f:
+            with open(path, "w", encoding="utf_8_sig", newline="") as f:
                 f.write(content)
                 f.write(";opera.postError=function(){}")
 
@@ -469,7 +468,7 @@ def _get_bad_encoding_files(src):
 
 def _get_string_keys(path):
     """Grab all the string keys of out a language file"""
-    re_key = re.compile("^ *ui_strings\.([^ =]*)")
+    re_key = re.compile(r"^ *ui_strings\.([^ =]*)")
     fp = codecs.open(path, "r", "utf_8_sig")
     lang_keys = set()
     for line in fp:
@@ -548,11 +547,12 @@ def _clobbering_copytree(src, dst, symlinks=False):
             errors.extend(err.args[0])
     try:
         shutil.copystat(src, dst)
-    except WindowsError:
-        # can't copy file access times on Windows
-        pass
     except OSError as why:
-        errors.extend((src, dst, str(why)))
+        # WindowsError, where it exists, means the file access times could not
+        # be copied and is ignored. It does not exist off Windows, and naming
+        # it there raised NameError out of this handler.
+        if os.name != "nt":
+            errors.extend((src, dst, str(why)))
     if errors:
         raise Error(errors)
 def _data_uri_from_path(path):
@@ -635,7 +635,7 @@ def _make_rel_url_path(src, dst):
     reldst = dst[len(common):]
     srcdir = srcdir[len(common):]
 
-    newpath = re.sub(""".*?[/\\\]|.+$""", "../", srcdir) or "./"
+    newpath = re.sub(r""".*?[/\\\]|.+$""", "../", srcdir) or "./"
     newpath = newpath + reldst
     newpath = newpath.replace("\\", "/")
     newpath = newpath.replace("//", "/")
@@ -916,28 +916,35 @@ Destination can be either a directory or a zip file"""
             shutil.copy(AUTHORS, os.path.join(dst, 'AUTHORS'))
 
 def cmd_call(*args):
-    """Run a command and return its output as text.
+    """Run a command and return (stdout, stderr, exit code) as text.
 
-    The pipes are opened in text mode, because every caller compares the
-    result against string literals. A command that is not installed is
-    reported the same way as a command that failed, so that callers can
-    treat a missing version control system as "not this one".
+    The pipes are opened in text mode and pinned to UTF-8, because every caller
+    compares the result against string literals and the default would decode
+    with the platform codepage. A command that is not installed is reported as
+    exit code -1, so that callers can treat a missing version control system as
+    "not this one" without inspecting stderr.
     """
     try:
-        return subprocess.Popen(args,
-                                stdout=subprocess.PIPE,
-                                stdin=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                universal_newlines=True).communicate()
+        process = subprocess.Popen(args,
+                                   stdout=subprocess.PIPE,
+                                   stdin=subprocess.PIPE,
+                                   stderr=subprocess.PIPE,
+                                   universal_newlines=True,
+                                   encoding="utf-8",
+                                   errors="replace")
+        out, err = process.communicate()
+        return out, err, process.returncode
     except OSError as error:
-        return "", str(error)
+        return "", str(error), -1
 
 def shell_call(shell, filter_fn, *args):
     out, err = subprocess.Popen(shell,
                                 stdout=subprocess.PIPE,
                                 stdin=subprocess.PIPE,
                                 stderr=subprocess.PIPE,
-                                universal_newlines=True).communicate(" ".join(args))
+                                universal_newlines=True,
+                                encoding="utf-8",
+                                errors="replace").communicate(" ".join(args))
     return filter_fn(out) if filter_fn else out, err
 
 def detect_vcs(path="."):
@@ -945,15 +952,15 @@ def detect_vcs(path="."):
 
     Asking "hg identify" and reading anything on stderr as "then it is git"
     only worked while Mercurial was installed everywhere. It is not, and a
-    missing executable is not evidence about the repository.
+    missing executable is not evidence about the repository. Neither is
+    stderr: git writes advice there while succeeding, so the exit code is
+    what decides.
 
     @return "git", "hg", or None when neither claims the directory.
     """
-    out, err = cmd_call("git", "rev-parse", "--git-dir")
-    if out.strip() and not err.strip():
+    if cmd_call("git", "rev-parse", "--git-dir")[2] == 0:
         return "git"
-    out, err = cmd_call("hg", "root")
-    if out.strip() and not err.strip():
+    if cmd_call("hg", "root")[2] == 0:
         return "hg"
     return None
 
@@ -964,8 +971,8 @@ def describe_working_tree():
             the git branch of the release path produces. The hash is the
             current commit, or "unknown" outside a repository.
     """
-    out, err = cmd_call("git", "rev-parse", "--short", "HEAD")
-    short_hash = out.strip() if out.strip() and not err.strip() else "unknown"
+    out, err, code = cmd_call("git", "rev-parse", "--short", "HEAD")
+    short_hash = out.strip() if code == 0 else "unknown"
     return time.strftime("%Y.%m.%d", time.gmtime()), short_hash
 
 def filter_git_login_msg(input_string):
@@ -1004,7 +1011,6 @@ def log2html(log, tag, rev, short_hash, url_commits, bts_url):
     entry = LogEntry()
     ret = []
     lines = log.split("\n")
-    url_commits = url_commits
     to_bts_link = partial(_dfl_bug2link, bts_url) if bts_url else None
     for line in lines:
         if line:
@@ -1109,14 +1115,12 @@ def build(args):
         if profile.get("verify_bom"):
             bad = _get_bad_encoding_files(src)
             if bad:
-                print("abort",)
-                print("the following files do not seem to be UTF8 with BOM encoded:")
+                print("abort, the following files do not seem to be UTF8 with BOM encoded:")
                 for b in bad: print("\t%s" % b)
                 return
 
         if os.path.isdir(dest) and not profile.get("force_overwrite"):
-            print("abort",)
-            print("destination exists! Set \"force_overwrite\" in the config file")
+            print("abort, destination exists! Set \"force_overwrite\" in the config file")
             return
 
         revision_name = "%s:%s, %s, %s" % (rev, short_hash, profile.get("name"), args.tag)
@@ -1188,10 +1192,10 @@ def build(args):
                 for name, lang in client_lang_files:
                     path = os.path.join(dest, name)
                     content = ""
-                    with open(path, 'rb') as f:
+                    with open(path, "r", encoding="utf_8_sig") as f:
                         content = f.read()
                     if content:
-                        with open(path, 'wb') as f:
+                        with open(path, "w", encoding="utf_8_sig", newline="") as f:
                             f.write(content.replace(cmd_base_url, base_url_tag, 1))
                     else:
                         print("abort, could not set base URL in %s" % name)

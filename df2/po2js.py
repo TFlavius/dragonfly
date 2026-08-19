@@ -214,7 +214,7 @@ def setup_subparser(subparsers, config):
 	subp.add_argument("dest", help="The destination directory.")
 	subp.add_argument("ref", 
 	                  type=argparse.FileType("r", encoding="utf_8_sig"),
-	                  help="""Path to a file to extract string ids.
+	                  help=r"""Path to a file to extract string ids.
 	                          The script searchs with the pattern 
 	                          "ui_strings\.([A-Z0-9_]+)" """)
 	subp.set_defaults(func=command_po2po)

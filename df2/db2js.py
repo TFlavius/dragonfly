@@ -14,7 +14,7 @@ class JSFileParseError(Exception):
 	def __str__(self):
 		return self.value
 
-"""
+r"""
 S_LITERAL_AGREE=-1
 S_LITERAL_AGREE.caption="Agree"
 S_LITERAL_AGREE.description="String caption will never change. Used for Agree button or similar, where the user agrees to a proposed action."

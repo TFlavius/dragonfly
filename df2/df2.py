@@ -57,7 +57,10 @@ def main():
     config=get_config()
     parser.set_defaults(config=config)
     parser.set_defaults(root_path=SOURCE_ROOT)
-    subparsers = parser.add_subparsers()
+    # Subparsers were mandatory in Python 2 argparse and optional from 3.3
+    # (bpo-9253). Without required=True a bare "df2" carries no func and
+    # ends in AttributeError instead of the usage message.
+    subparsers = parser.add_subparsers(dest="command", required=True)
     # The codegen submodules are reachable both as module globals and as
     # attributes of the package, so collect them once. Registering a
     # subcommand twice makes argparse raise on the duplicate name.

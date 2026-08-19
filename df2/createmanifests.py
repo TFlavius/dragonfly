@@ -30,7 +30,7 @@ from urllib.parse import quote, unquote
 from time import gmtime, strftime, mktime, strptime, time
 
 MANIFEST_DIR = "manifests"
-_re_client = re.compile("client-(?P<lang>[^.]+)\.xml")
+_re_client = re.compile(r"client-(?P<lang>[^.]+)\.xml")
 _re_resource = re.compile("(?:<script[^>]*src=\"([^\"]*))|(?:<link[^>]*href=\"([^\"]*))")
 
 def get_timestamp(path = None):
