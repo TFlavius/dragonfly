@@ -174,7 +174,7 @@ window.load_screen_timeout = window.setTimeout(function()
 ]]></script>
 
 <!-- please don't use multiline html comments yet. They confuse the build tool -->
-<!-- the following two directives will make dfbuild concatenate all css and js respectively into the named files. -->
+<!-- the following two directives will make the build tool concatenate all css and js respectively into the named files. -->
 <!-- command concat_css "./style/dragonfly.css" -->
 <!-- command concat_js "./script/dragonfly.js" -->
 
