@@ -14,7 +14,7 @@ class JSFileParseError(Exception):
 	def __str__(self):
 		return self.value
 
-"""
+r"""
 S_LITERAL_AGREE=-1
 S_LITERAL_AGREE.caption="Agree"
 S_LITERAL_AGREE.description="String caption will never change. Used for Agree button or similar, where the user agrees to a proposed action."
@@ -68,7 +68,7 @@ def db2js(args):
 
 def setup_subparser(subparsers, config):
 	subp = subparsers.add_parser("db2js", help="""Create an .js file from a .db file.""")
-	subp.add_argument("src", type=argparse.FileType("rb", 0),
+	subp.add_argument("src", type=argparse.FileType("r", encoding="utf_8_sig"),
 	                         help="""The source file, typically english.db file.""")
-	subp.add_argument("dest", type=argparse.FileType("wb", 0), help="the destination file.")
+	subp.add_argument("dest", type=argparse.FileType("w", encoding="utf_8_sig"), help="the destination file.")
 	subp.set_defaults(func=db2js)

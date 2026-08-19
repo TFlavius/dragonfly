@@ -1,7 +1,7 @@
-import build
-import jssort
+from . import build
+from . import jssort
 import os
-import cleanrepo
+from . import cleanrepo
 
 def normws(args):
     cleanrepo.normws(src=".")

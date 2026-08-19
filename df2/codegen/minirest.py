@@ -1,5 +1,5 @@
 import re
-import node
+from . import node
 
 class ParseError(Exception):
     def __init__(self, lines):
@@ -8,7 +8,7 @@ class ParseError(Exception):
         return "No processor for %s\n" % "\t\n".join(self.lines)
 
 def get_doc_lines(path):
-    with open(path, "rb") as f:  return f.readlines()
+    with open(path, "r", encoding="utf-8") as f:  return f.readlines()
 
 def reg_exp(*args): return re.compile("".join(list(args)))
 
@@ -271,7 +271,7 @@ def process(lines):
     return root
 
 def main():
-    print process(get_doc_lines("doc"))
+    print(process(get_doc_lines("doc")))
 
 if __name__ == "__main__":
     main()

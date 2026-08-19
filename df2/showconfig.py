@@ -7,7 +7,7 @@ def showconfig(args):
 
 def configdoc(args):
 	with open(os.path.join(args.root_path, "CONFIGDOC"), "r") as f:
-		print f.read()
+		print(f.read())
 
 def setup_subparser(subparsers, config):
 	subp = subparsers.add_parser('showconfig', help="Show the config file.")

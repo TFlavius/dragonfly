@@ -4,7 +4,7 @@ import re
 import codecs
 import time
 import argparse
-import db2js
+from . import db2js
 import codecs
 
 def get_timestamp():
@@ -32,7 +32,7 @@ def jssort(args):
 
 	out = []
 	content = None
-	with open(args.src, "rb") as f:
+	with open(args.src, "r", encoding="utf_8_sig") as f:
 		content = f.read()
 		f.close()
 	if not content:
@@ -53,14 +53,14 @@ def jssort(args):
 	duplicates = []
 	for ident, entry in out_sorted:
 		if previous and ident == previous[ID]:
-			print "duplicated ID: %s" % ident
+			print("duplicated ID: %s" % ident)
 			if entry == previous[ENTRY]:
 				duplicates.append((ident, entry))
 		previous = (ident, entry)
 	for item in duplicates:
 		out_sorted.pop(out_sorted.index(item))
-		print "removed duplicated entry in ui strings\n %s" % item[ENTRY]
-	with open(args.src, "wb") as f:
+		print("removed duplicated entry in ui strings\n %s" % item[ENTRY])
+	with open(args.src, "w", encoding="utf_8_sig", newline="") as f:
 		f.write(codecs.BOM_UTF8)
 		f.write(db2js.HEAD)
 		for e in out_sorted:

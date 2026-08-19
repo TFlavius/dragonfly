@@ -1,4 +1,4 @@
-﻿# Script to create app cache manifest files for the Dragonfly project.
+# Script to create app cache manifest files for the Dragonfly project.
 # Takes very much in regard how the dragonfly.opera.com server works.
 # There are two main paths on https://dragonfly.opera.com, 
 # /app/ and /app/cutting-edge/.
@@ -23,15 +23,14 @@
 # all the rewrites.
 
 
-from __future__ import with_statement
 import re
 import os
 import sys
-from urllib import quote, unquote
+from urllib.parse import quote, unquote
 from time import gmtime, strftime, mktime, strptime, time
 
 MANIFEST_DIR = "manifests"
-_re_client = re.compile("client-(?P<lang>[^.]+)\.xml")
+_re_client = re.compile(r"client-(?P<lang>[^.]+)\.xml")
 _re_resource = re.compile("(?:<script[^>]*src=\"([^\"]*))|(?:<link[^>]*href=\"([^\"]*))")
 
 def get_timestamp(path = None):
@@ -54,7 +53,7 @@ def get_resources(os_path, web_path, file_name):
     return resources
 
 def write_maifest(os_path, file_name, resources, tag=""):
-    with open(os.path.join(os_path, MANIFEST_DIR, file_name), "wb") as f:
+    with open(os.path.join(os_path, MANIFEST_DIR, file_name), "w", encoding="utf_8_sig", newline="") as f:
         content = [
             "CACHE MANIFEST",
             "# created %s %s" % (get_timestamp(), tag),
@@ -70,10 +69,10 @@ def write_maifest(os_path, file_name, resources, tag=""):
 def add_manifest(os_path, web_path, client_file, manifest):
     content = None
     manifest_path = "/".join([web_path, MANIFEST_DIR, manifest]) 
-    with open(os.path.join(os_path, client_file), "rb") as f:
+    with open(os.path.join(os_path, client_file), "r", encoding="utf_8_sig") as f:
         content = f.read()
     if content and not ' manifest="' in content:
-        with open(os.path.join(os_path, client_file), "wb") as f:
+        with open(os.path.join(os_path, client_file), "w", encoding="utf_8_sig", newline="") as f:
             f.write(content.replace(">", ' manifest="%s">' % manifest_path, 1))
 
 def create_manifests(path, domain_token=None, tag=""):

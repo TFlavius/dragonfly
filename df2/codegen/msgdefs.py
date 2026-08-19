@@ -1,9 +1,9 @@
 import os
 import sys
 import time
-import protoparser
-import protoobjects
-import utils
+from . import protoparser
+from . import protoobjects
+from . import utils
 
 INDENT = "  "
 
@@ -62,11 +62,11 @@ def print_msg_def(dest, service, type, command_or_event, message):
     service_name = service.name
     version = service.options.version.value.strip("\"")
     file_name = "%s.%s.%s.%s.def" % (service_name, version, type, command_or_event.name)
-    with open(os.path.join(dest, file_name), "wb") as file:
+    with open(os.path.join(dest, file_name), "w", encoding="utf-8", newline="") as file:
         print_message(file, message)
 
 def print_msg_defs(proto_path, dest):
-    with open(proto_path, "rb") as proto_file:
+    with open(proto_path, "r", encoding="utf-8") as proto_file:
         global_scope = protoparser.parse(proto_file.read())
         for c in global_scope.service.commands:
             print_msg_def(dest, global_scope.service, "commands", c, c.request_arg)
@@ -77,10 +77,22 @@ def print_msg_defs(proto_path, dest):
 def msg_defs(args):
     if not os.path.exists(args.dest): os.mkdir(args.dest)
     if os.path.isfile(args.src):
-        print_masg_defs(args.src, args.dest)
+        print_msg_defs(args.src, args.dest)
     elif os.path.isdir(args.src):
+        # One definition the parser cannot read used to abort the whole walk,
+        # which silently dropped every file sorted after it. Report and carry
+        # on, and fail the run at the end so the loss is not mistaken for
+        # success.
+        failed = []
         for path in utils.get_proto_files(args.src):
-            print_msg_defs(path, args.dest)
+            try:
+                print_msg_defs(path, args.dest)
+            except Exception as error:
+                failed.append((path, error))
+                print("skipped %s: %s" % (path, error))
+        if failed:
+            print("%d of the definitions could not be read" % len(failed))
+            sys.exit(1)
 
 def setup_subparser(subparsers, config):
     subp = subparsers.add_parser("msg-defs", help="Create html documentation.")
