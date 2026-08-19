@@ -68,7 +68,7 @@ def db2js(args):
 
 def setup_subparser(subparsers, config):
 	subp = subparsers.add_parser("db2js", help="""Create an .js file from a .db file.""")
-	subp.add_argument("src", type=argparse.FileType("rb", 0),
+	subp.add_argument("src", type=argparse.FileType("r", encoding="utf_8_sig"),
 	                         help="""The source file, typically english.db file.""")
-	subp.add_argument("dest", type=argparse.FileType("wb", 0), help="the destination file.")
+	subp.add_argument("dest", type=argparse.FileType("w", encoding="utf_8_sig"), help="the destination file.")
 	subp.set_defaults(func=db2js)

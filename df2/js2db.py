@@ -43,9 +43,9 @@ def js2db(args):
 
 def setup_subparser(subparsers, config):
 	subp = subparsers.add_parser("js2db", help="Create an .db file from an .js file.")
-	subp.add_argument("src", type=argparse.FileType("rb", 0),
+	subp.add_argument("src", type=argparse.FileType("r", encoding="utf_8_sig"),
 	                         help="""The source file, typically 
 	                                 src/ui-strings/ui_strings-en.js.""")
-	subp.add_argument("dest", type=argparse.FileType("wb", 0),
+	subp.add_argument("dest", type=argparse.FileType("w", encoding="utf_8_sig"),
 	                          help="the destination file.")
 	subp.set_defaults(func=js2db)

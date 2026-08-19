@@ -55,6 +55,37 @@ class Bytes(Type):
     sup_type = BUFFER
     name = "bytes"
 
+# The scalar types below are used by the scope service definitions but were
+# missing from this table, so any .proto that mentions one aborted the run.
+
+class SInt32(Type):
+    sup_type = NUMBER
+    name = "sint32"
+
+class SInt64(Type):
+    sup_type = NUMBER
+    name = "sint64"
+
+class UInt64(Type):
+    sup_type = NUMBER
+    name = "uint64"
+
+class Int64(Type):
+    sup_type = NUMBER
+    name = "int64"
+
+class Float(Type):
+    sup_type = NUMBER
+    name = "float"
+
+class Fixed32(Type):
+    sup_type = NUMBER
+    name = "fixed32"
+
+class Fixed64(Type):
+    sup_type = NUMBER
+    name = "fixed64"
+
 class DocLines(object):
     _re_doc_lines = re.compile(r"(?:/\*+)?\r?\n[ \t]*\* ?/?")
     @property
@@ -238,7 +269,7 @@ class Service(DocLines):
         for t in [self.commands, self.events]:
             for m in t:
                 if m.name == key: return m
-        raise AttributeError, key
+        raise AttributeError(key)
 
 class Global(object):
     def __init__(self):
@@ -249,4 +280,4 @@ class Global(object):
         self.options = FieldOptions()
         self.parent_scope = None
 
-Type.primitives = (lambda gs: dict([(o.name, o()) for o in gs if getattr(o, "sup_type", None) in PRIMITIVES]))(globals().values())
+Type.primitives = (lambda gs: dict([(o.name, o()) for o in gs if getattr(o, "sup_type", None) in PRIMITIVES]))(list(globals().values()))

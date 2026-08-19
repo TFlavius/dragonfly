@@ -6,11 +6,11 @@ import tempfile
 import sys
 import zipfile
 import base64
-import urllib
+import urllib.parse
 import subprocess
 import time
 from functools import partial
-from createmanifests import create_manifests
+from .createmanifests import create_manifests
 
 """
 uglifyjs is a python wrapper for uglifyjs.
@@ -29,8 +29,8 @@ It can be any javascript minifyer. The required interface is:
 try:
     import uglifyjs as jsminify
 except ImportError:
-    print "failed to import uglifyjs"
-    import jsminify
+    print("failed to import uglifyjs")
+    from . import jsminify
 
 
 _text_exts = (".js", ".html", ".xml", ".css")
@@ -158,7 +158,7 @@ class LogEntry(object):
         elif "s" in line:
             self.subject = line[2:]
         else:
-            print "Invalid log format", line
+            print("Invalid log format", line)
 
 def _remove_strict(content):
   return _re_strict.sub("", content, count=1)
@@ -227,7 +227,7 @@ def _process_directives(root, filepath, vars):
                     tmpfile.write(_script_ele % target)
                 continue
             elif cmd == "set_rel_base_url" and \
-               vars.has_key("base_url") and vars["base_url"]:
+               "base_url" in vars and vars["base_url"]:
                 tmpfile.write(_base_url % vars["base_url"])
                 continue
             else: # some other unknown command! Let fall through so line is written
@@ -252,7 +252,7 @@ def _process_directives(root, filepath, vars):
 
     # write back the temp stuff, which is now the authoritative stuff:
 
-    shutil.copy(tmppath, filepath)
+    shutil.copyfile(tmppath, filepath)
     os.unlink(tmppath)
 
     for outfile, contentfiles in known_files.items():
@@ -322,14 +322,17 @@ def _add_license(root, license_path="include-license.txt", whitelist=[]):
     for f in license_files:
         source = codecs.open(f, "r", encoding="utf_8_sig")
         tmpfd, tmppath = tempfile.mkstemp(".tmp", "dfbuild.")
-        tmpfile = os.fdopen(tmpfd, "w")
-        wrapped = codecs.getwriter("utf_8_sig")(tmpfile)
+        tmpfile = os.fdopen(tmpfd, "w", encoding="utf_8_sig", newline="")
+
+        wrapped = tmpfile
         wrapped.write(license)
         wrapped.write("\n")
         wrapped.write(source.read())
         source.close()
         tmpfile.close()
-        shutil.copy(tmppath, f)
+        # copyfile rather than copy: shutil.copy also copies the mode, and
+        # mkstemp creates 0600, which would ship an unreadable bundle.
+        shutil.copyfile(tmppath, f)
         os.unlink(tmppath)
 
 
@@ -346,16 +349,17 @@ def _add_keywords(root, keywords):
     for f in keyword_files:
         source = codecs.open(f, "r", encoding="utf_8_sig")
         tmpfd, tmppath = tempfile.mkstemp(".tmp", "dfbuild.")
-        tmpfile = os.fdopen(tmpfd, "w")
-        wrapped = codecs.getwriter("utf_8_sig")(tmpfile)
+        tmpfile = os.fdopen(tmpfd, "w", encoding="utf_8_sig", newline="")
         for line in source:
             for key, val in keywords.items():
                 line = line.replace(key, val)
-            wrapped.write(line)
+            tmpfile.write(line)
 
         source.close()
         tmpfile.close()
-        shutil.copy(tmppath, f)
+        # copyfile rather than copy: shutil.copy also copies the mode, and
+        # mkstemp creates 0600, which would ship an unreadable bundle.
+        shutil.copyfile(tmppath, f)
         os.unlink(tmppath)
 
 def _is_utf8(path):
@@ -536,26 +540,25 @@ def _clobbering_copytree(src, dst, symlinks=False):
             else:
                 shutil.copy2(srcname, dstname)
             # XXX What about devices, sockets etc.?
-        except (IOError, os.error), why:
+        except (IOError, os.error) as why:
             errors.append((srcname, dstname, str(why)))
         # catch the Error from the recursive copytree so that we can
         # continue with other files
-        except Error, err:
+        except Error as err:
             errors.extend(err.args[0])
     try:
         shutil.copystat(src, dst)
     except WindowsError:
         # can't copy file access times on Windows
         pass
-    except OSError, why:
+    except OSError as why:
         errors.extend((src, dst, str(why)))
     if errors:
-        raise Error, errors
-
+        raise Error(errors)
 def _data_uri_from_path(path):
     if os.path.isfile(path):
         fp = open(path, "rb")
-        return "'data:image/png;charset=utf-8;base64," + base64.b64encode(fp.read()) + "'"
+        return "'data:image/png;charset=utf-8;base64," + base64.b64encode(fp.read()).decode("ascii") + "'"
     else:
         return None
 
@@ -567,7 +570,7 @@ def _find_file_path(base, file_name):
     return None
 
 def URI_to_os_path(path):
-    return os.path.join(*[urllib.unquote(part) for part in path.split('/')])
+    return os.path.join(*[urllib.parse.unquote(part) for part in path.split('/')])
 
 def _convert_imgs_to_data_uris(src, whitelist=[]):
     re_img = re.compile(r""".*?url\((['"]?(.*?)['"]?)\)""")
@@ -580,7 +583,7 @@ def _convert_imgs_to_data_uris(src, whitelist=[]):
         for path in [ os.path.join(base, f) for f in files if f.endswith(".css") ]:
             fp = codecs.open(path, "r", "utf_8_sig")
             dirty = False
-            temp = tempfile.TemporaryFile()
+            temp = tempfile.TemporaryFile(mode="w+", encoding="utf-8", newline="")
             for line in fp:
                 match = re_img.findall(line)
                 if match:
@@ -598,21 +601,21 @@ def _convert_imgs_to_data_uris(src, whitelist=[]):
                             deletions.append(file_path)
                             uri = _data_uri_from_path(file_path)
                         if uri:
-                            temp.write(line.replace(full, uri).encode("utf-8"))
+                            temp.write(line.replace(full, uri))
                         else:
                             if not stripped.startswith("data:"):
-                                print "no data uri for path:", os.path.join(base, URI_to_os_path(stripped))
-                            temp.write(line.encode("utf-8"))
+                                print("no data uri for path:", os.path.join(base, URI_to_os_path(stripped)))
+                            temp.write(line)
                             dirty = True
                 else:
-                    temp.write(line.encode("utf-8"))
+                    temp.write(line)
                     dirty = True
 
             if dirty:
                 fp.close()
                 fp = codecs.open(path, "w", encoding="utf_8_sig")
                 temp.seek(0)
-                fp.write(temp.read().decode("utf-8"))
+                fp.write(temp.read())
                 fp.close()
 
     for path in deletions:
@@ -841,19 +844,19 @@ Destination can be either a directory or a zip file"""
     if options.check_encodings:
         bad = _get_bad_encoding_files(src)
         if bad:
-            print "The following files do not seem to be UTF8 with BOM encoded:"
-            for b in bad: print "\t%s" % b
+            print("The following files do not seem to be UTF8 with BOM encoded:")
+            for b in bad: print("\t%s" % b)
             sys.exit()
 
     if options.check_strings:
         missingstrings = _get_missing_strings_for_dir(os.path.join(src, "ui-strings"), "en")
         if missingstrings==None:
-            print "couldn't parse the master string list!"
+            print("couldn't parse the master string list!")
             sys.exit()
         elif missingstrings:
             for lang, strings in missingstrings.items():
-                print """Language "%s" is missing the following strings:""" % lang
-                for s in strings: print "\t%s" % s
+                print("""Language "%s" is missing the following strings:""" % lang)
+                for s in strings: print("\t%s" % s)
             sys.exit()
 
     if dst.endswith(".zip"): # export to a zip file
@@ -913,17 +916,57 @@ Destination can be either a directory or a zip file"""
             shutil.copy(AUTHORS, os.path.join(dst, 'AUTHORS'))
 
 def cmd_call(*args):
-    return subprocess.Popen(args,
-                            stdout=subprocess.PIPE,
-                            stdin=subprocess.PIPE,
-                            stderr=subprocess.PIPE).communicate()
+    """Run a command and return its output as text.
+
+    The pipes are opened in text mode, because every caller compares the
+    result against string literals. A command that is not installed is
+    reported the same way as a command that failed, so that callers can
+    treat a missing version control system as "not this one".
+    """
+    try:
+        return subprocess.Popen(args,
+                                stdout=subprocess.PIPE,
+                                stdin=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                universal_newlines=True).communicate()
+    except OSError as error:
+        return "", str(error)
 
 def shell_call(shell, filter_fn, *args):
     out, err = subprocess.Popen(shell,
                                 stdout=subprocess.PIPE,
                                 stdin=subprocess.PIPE,
-                                stderr=subprocess.PIPE).communicate(" ".join(args))
+                                stderr=subprocess.PIPE,
+                                universal_newlines=True).communicate(" ".join(args))
     return filter_fn(out) if filter_fn else out, err
+
+def detect_vcs(path="."):
+    """Name the version control system holding `path`.
+
+    Asking "hg identify" and reading anything on stderr as "then it is git"
+    only worked while Mercurial was installed everywhere. It is not, and a
+    missing executable is not evidence about the repository.
+
+    @return "git", "hg", or None when neither claims the directory.
+    """
+    out, err = cmd_call("git", "rev-parse", "--git-dir")
+    if out.strip() and not err.strip():
+        return "git"
+    out, err = cmd_call("hg", "root")
+    if out.strip() and not err.strip():
+        return "hg"
+    return None
+
+def describe_working_tree():
+    """Identify the checked-out revision without touching the working tree.
+
+    @return (revision, short hash). The revision is a UTC date, matching what
+            the git branch of the release path produces. The hash is the
+            current commit, or "unknown" outside a repository.
+    """
+    out, err = cmd_call("git", "rev-parse", "--short", "HEAD")
+    short_hash = out.strip() if out.strip() and not err.strip() else "unknown"
+    return time.strftime("%Y.%m.%d", time.gmtime()), short_hash
 
 def filter_git_login_msg(input_string):
     while "\n" in input_string:
@@ -937,7 +980,7 @@ def fix_bom(args):
     bad = _get_bad_encoding_files(args.src)
     for path in bad:
         _ansi2utf8(path)
-        print "BOM fixed for \"%s.\"" % path
+        print("BOM fixed for \"%s.\"" % path)
     return 0
 
 def _get_profile(profiles, name):
@@ -961,8 +1004,8 @@ def log2html(log, tag, rev, short_hash, url_commits, bts_url):
     entry = LogEntry()
     ret = []
     lines = log.split("\n")
-    url_commits = url_commits.encode("utf-8")
-    to_bts_link = partial(_dfl_bug2link, bts_url.encode("utf-8")) if bts_url else None
+    url_commits = url_commits
+    to_bts_link = partial(_dfl_bug2link, bts_url) if bts_url else None
     for line in lines:
         if line:
             entry.update(line)
@@ -984,66 +1027,81 @@ def build(args):
     profile.update(build_config.get("default_profile", {}))
     target_profile = _get_profile(build_config.get("profiles", {}), args.profile)
     if target_profile == None:
-        print "abort, profile \"%s\" not found in config" % args.profile
+        print("abort, profile \"%s\" not found in config" % args.profile)
         return
 
     profile.update(target_profile)
-    out, err = cmd_call("hg", "identify")
-    is_git = bool(err)
+
+    is_git = False
     current_branch = ""
-    if is_git:
-        git_shell = build_config.get("git-shell")
-        if git_shell:
-            shell = partial(shell_call, git_shell, filter_git_login_msg)
+    if args.no_vcs:
+        # Build the tree as it is checked out. The release path below updates
+        # the working copy to a tag first, which is wrong for a submodule and
+        # for any build that is not cutting a release.
+        rev, short_hash = describe_working_tree()
+
+    else:
+        vcs = detect_vcs()
+        if vcs is None:
+            print("abort, neither git nor hg claims this directory; use --no-vcs to build it anyway")
+            return
+        is_git = vcs == "git"
+        if is_git:
+            git_shell = build_config.get("git-shell")
+            if git_shell:
+                shell = partial(shell_call, git_shell, filter_git_login_msg)
+            else:
+                shell = cmd_call
+                print("no 'git-shell' defined in config, using default shell")
+            cmds = GIT_COMMANDS
+            if args.tag == "tip":
+                args.tag = "HEAD"
+            print("getting status")
+            status, err = shell("git", "status")
+            if err:
+                print(err)
+                return
+            # "working directory clean" is the pre-2.9 wording; modern git says
+            # "working tree clean".
+            if not ("nothing to commit" in status and
+                    ("working tree clean" in status or "working directory clean" in status)):
+                print(status)
+                print("you need a clean status to build")
+                return
+            m = _re_branch.search(status)
+            if m:
+                current_branch = m.group(1)
         else:
             shell = cmd_call
-            print "no 'git-shell' defined in config, using default shell"
-        cmds = GIT_COMMANDS
-        if args.tag == "tip":
-            args.tag = "HEAD"
-        print "getting status"
-        status, err = shell("git", "status")
+            cmds = HG_COMMANDS
+
+        out, err = shell(*cmds["update"](args.tag))
+        err = err.strip(" \n\t")
         if err:
-            print err
-            return
-        if not ("nothing to commit" in status and "working directory clean" in status):
-            print status
-            print "you need a clean status to build"
-            return
-        m = _re_branch.search(status)
-        if m:
-            current_branch = m.group(1)
-    else:
-        shell = cmd_call
-        cmds = HG_COMMANDS
+            # It's expected to be in detached head state here.
+            if not ("You are in 'detached HEAD' state." in err or "HEAD is now at" in err):
+                print("abort", err)
+                return
 
-    out, err = shell(*cmds["update"](args.tag))
-    err = err.strip(" \n\t")
-    if err:
-        # It's expected to be in detached head state here.
-        if not ("You are in 'detached HEAD' state." in err or "HEAD is now at" in err):
-            print "abort", err
+        if out:
+            print(out.strip())
+        out, err = shell(*cmds["get_hash"](args.tag))
+        if err:
+            print("abort", err)
             return
 
-    if out:
-        print out.strip()
-    out, err = shell(*cmds["get_hash"](args.tag))
-    if err:
-        print "abort", err
-        return
-
-    print "updated to revision: ", out.strip()
-    if is_git:
-        short_hash = out.strip()
-        rev = time.strftime("%Y.%m.%d", time.gmtime())
-    else:
-        rev, short_hash = out.strip().split(":", 1)
+        print("updated to revision: ", out.strip())
+        if is_git:
+            short_hash = out.strip()
+            rev = time.strftime("%Y.%m.%d", time.gmtime())
+        else:
+            rev, short_hash = out.strip().split(":", 1)
 
     if not args.skip_build:
         src = profile.get("src", None)
         dest = profile.get("dest", None)
         if not (src and dest):
-            print "abort, missing \"src\" or \"dest\" in the profile"
+            print("abort, missing \"src\" or \"dest\" in the profile")
             return
 
         src = os.path.abspath(os.path.normpath(src))
@@ -1051,14 +1109,14 @@ def build(args):
         if profile.get("verify_bom"):
             bad = _get_bad_encoding_files(src)
             if bad:
-                print "abort",
-                print "the following files do not seem to be UTF8 with BOM encoded:"
-                for b in bad: print "\t%s" % b
+                print("abort",)
+                print("the following files do not seem to be UTF8 with BOM encoded:")
+                for b in bad: print("\t%s" % b)
                 return
 
         if os.path.isdir(dest) and not profile.get("force_overwrite"):
-            print "abort",
-            print "destination exists! Set \"force_overwrite\" in the config file"
+            print("abort",)
+            print("destination exists! Set \"force_overwrite\" in the config file")
             return
 
         revision_name = "%s:%s, %s, %s" % (rev, short_hash, profile.get("name"), args.tag)
@@ -1070,31 +1128,31 @@ def build(args):
                exclude_dirs=profile.get("copy_blacklist"),
                keywords={"$dfversion$": args.revision, "$revdate$": revision_name},
                directive_vars=dirvars)
-        print "build exported."
+        print("build exported.")
         if profile.get("translate"):
             _localize_buildout(dest,
                                os.path.join(src, "ui-strings"),
                                profile.get("minify"))
-            print "build translated"
+            print("build translated")
 
         if profile.get("make_data_uris"):
             _convert_imgs_to_data_uris(dest, profile.get("minify_whitelist"))
             # any remaining image in ui-images is not used
             img_dir = os.path.join(dest, 'ui-images')
             shutil.rmtree(img_dir)
-            print "data URIs created"
+            print("data URIs created")
 
         if profile.get("minify"):
             _minify_buildout(dest, profile.get("minify_whitelist"))
-            print "builds minified"
+            print("builds minified")
 
         if profile.get("license"):
             _add_license(dest, whitelist=profile.get("minify_whitelist"))
-            print "license added"
+            print("license added")
 
         if profile.get("suppress_warnings"):
             _suppress_warnings(dest, profile.get("minify_whitelist"))
-            print "warnings suppressed in build."
+            print("warnings suppressed in build.")
 
         client_lang_files = []
         for item in os.listdir(dest):
@@ -1111,7 +1169,7 @@ def build(args):
 
             for name, lang in client_lang_files:
                 make_build_archive(dest, zip_target, name)
-                print "build for %s zipped" % lang
+                print("build for %s zipped" % lang)
 
             if profile.get("copy_zips_to_latest"):
                 latest = os.path.join(zip_dir, "latest")
@@ -1124,7 +1182,7 @@ def build(args):
             pos = path_segs.index(profile.get("local_domain_dir_name"))
             if pos > -1:
                 base_url = "/%s/" % "/".join(path_segs[pos + 1:])
-                base_url_tag = (_base_url % base_url).strip().encode("utf-8")
+                base_url_tag = (_base_url % base_url).strip()
                 cmd_base_url = "<!-- command set_rel_base_url -->"
 
                 for name, lang in client_lang_files:
@@ -1136,24 +1194,27 @@ def build(args):
                         with open(path, 'wb') as f:
                             f.write(content.replace(cmd_base_url, base_url_tag, 1))
                     else:
-                        print "abort, could not set base URL in %s" % name
+                        print("abort, could not set base URL in %s" % name)
                         return
 
-                print "base URLs set"
+                print("base URLs set")
             else:
-                print "abort, could not set the base URLs"
+                print("abort, could not set the base URLs")
                 return
 
         if profile.get("create_manifests"):
             try:
-                root = profile.get("local_domain_dir_name").encode("utf-8")
-                create_manifests(dest.encode("utf-8"), domain_token=root, tag=args.tag)
-                print "app cache manifests created"
+                root = profile.get("local_domain_dir_name")
+                create_manifests(dest, domain_token=root, tag=args.tag)
+                print("app cache manifests created")
             except:
-                print "abort, could not create the manifest files"
+                print("abort, could not create the manifest files")
                 return
 
-    if profile.get("create_log"):
+    if profile.get("create_log") and args.no_vcs:
+        print("skipping the revision log, --no-vcs was given")
+
+    if profile.get("create_log") and not args.no_vcs:
         log_dir = os.path.abspath(os.path.normpath(profile.get("logs")))
         start_rev = args.last_revision_log
         if is_git:
@@ -1181,7 +1242,7 @@ def build(args):
         if start_rev:
             out, err = shell(*cmds["log"](start_rev, args.tag))
             if err:
-                print "could not create a log\n", err
+                print("could not create a log\n", err)
             else:
                 if is_git:
                     url_commits = profile.get("url_commits")
@@ -1189,24 +1250,24 @@ def build(args):
                     out = log2html(out, args.tag, rev, short_hash, url_commits, bts_url)
                 with open(os.path.join(log_dir, log_name), "w") as f:
                     if not is_git and os.name == "nt":
-                        f.write(out.decode("windows-1252").encode("utf-8"))
+                        f.write(out)
                     else:
                         f.write(out)
-                    print "log %s created" % log_name
+                    print("log %s created" % log_name)
         else:
-            print "not possible to find a start revision",
-            print "provide a start revision with the -l flag"
+            print("not possible to find a start revision",)
+            print("provide a start revision with the -l flag")
 
     if not args.skip_build:
         AUTHORS = os.path.join(src, '..', 'AUTHORS')
         if os.path.isfile(AUTHORS):
             shutil.copy(AUTHORS, os.path.join(dest, 'AUTHORS'))
 
-    tip = current_branch if is_git else "tip"
+    tip = "" if args.no_vcs else (current_branch if is_git else "tip")
     if tip:
-        print "update to %s" % tip
+        print("update to %s" % tip)
         out, err = shell(*cmds["update"](tip))
-        print err if err else out
+        print(err if err else out)
 
 def setup_subparser(subparsers, config):
     subp = subparsers.add_parser('build', help="Build Dragonfly.")
@@ -1234,6 +1295,14 @@ def setup_subparser(subparsers, config):
                               the log is created from the previous log
                               (build recreated). If there is no log and the
                               argument is not set no log is created.""")
+    subp.add_argument('--no-vcs',
+                      action="store_true",
+                      default=False,
+                      help="""Build the working tree as it is checked out.
+                              Skips the version control update, the clean
+                              status check and the revision log. Use this to
+                              build a submodule or from any tree that is not
+                              cutting a release.""")
     subp.set_defaults(skip_build=False)
     subp.set_defaults(func=build)
 

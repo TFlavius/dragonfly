@@ -6,7 +6,7 @@ import codecs
 import tempfile
 import optparse
 import string
-import StringIO
+import io
 import collections
 
 # Backward compat for pre 2.6 when namedtuple didn't exist
@@ -342,8 +342,8 @@ def minify(inpath, outpath, encoding="utf_8"):
 
 def minify_str(data):
     """Return minified version of the argument. Argument should be a string"""
-    input = StringIO.StringIO(data)
-    output = StringIO.StringIO()
+    input = io.StringIO(data)
+    output = io.StringIO()
     Minify(input, output)
     return output.getvalue()
 

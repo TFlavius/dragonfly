@@ -125,7 +125,7 @@ def check_placeholders(src_str, dest_str):
 
 def po2(in_file, name, writer):
 	ids = []
-	with open(in_file, "rb") as f:
+	with open(in_file, "r", encoding="utf_8_sig") as f:
 		content = f.read()
 		match_code = RE_LANG_CODE.search(content)
 		match_name = RE_LANG_NAME.search(content)
@@ -171,22 +171,22 @@ def command_po2(args, writer_class, f_name_tmpl, id_list=None):
 						ids = set(ids)
 						diff = ref_ids - ids
 						if diff:
-							print "Error: Missing ids in %s\n" % name
+							print("Error: Missing ids in %s\n" % name)
 							for i in sorted(list(diff)):
 								if i:
-									print "\t", i
-							print ""
+									print("\t", i)
+							print("")
 						diff = ids - ref_ids
 						if diff:
-							print "Warning: Missing ids in %s\n" % args.ref.name
+							print("Warning: Missing ids in %s\n" % args.ref.name)
 							for i in sorted(list(diff)):
 								if i:
-									print "\t", i
-							print ""
-					with open(os.path.join(dest, js_file), "wb") as f:
+									print("\t", i)
+							print("")
+					with open(os.path.join(dest, js_file), "w", encoding="utf_8_sig", newline="") as f:
 						f.write(codecs.BOM_UTF8)
 						f.write(writer.get_content())
-						print "written %s." % js_file
+						print("written %s." % js_file)
 
 def command_po2js(args):
 	command_po2(args, JSWriter, "ui_strings-%s.js")
@@ -202,7 +202,7 @@ def setup_subparser(subparsers, config):
 	subp.add_argument("dest", help="The destination directory.")
 	subp.add_argument("ref", 
 	                  nargs="?",
-	                  type=argparse.FileType("rb", 0),
+	                  type=argparse.FileType("r", encoding="utf_8_sig"),
 	                  help="""Optional path to a .js file to check the
 	                          completeness of the strings.""")
 	subp.set_defaults(func=command_po2js)
@@ -213,7 +213,7 @@ def setup_subparser(subparsers, config):
 	                  help="The source directory, typically core/translations.")
 	subp.add_argument("dest", help="The destination directory.")
 	subp.add_argument("ref", 
-	                  type=argparse.FileType("rb", 0),
+	                  type=argparse.FileType("r", encoding="utf_8_sig"),
 	                  help="""Path to a file to extract string ids.
 	                          The script searchs with the pattern 
 	                          "ui_strings\.([A-Z0-9_]+)" """)

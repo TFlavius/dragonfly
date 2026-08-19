@@ -1,6 +1,6 @@
 import argparse
 import os
-from po2js import get_ids_from_js
+from .po2js import get_ids_from_js
 
 class ExcludDirsAction(argparse.Action):
 	def __call__(self, parser, namespace, values, option_string=None):
@@ -19,15 +19,15 @@ def verifyids(args):
 		
 		for name in files:
 			if name.endswith(".js"):
-				with open(os.path.join(root, name), "rb") as f:
+				with open(os.path.join(root, name), "r", encoding="utf_8_sig") as f:
 					dest_ids.update(get_ids_from_js(f))
 
 	if src_ids > dest_ids:
-		print "unused IDs %s" % list(src_ids - dest_ids)
+		print("unused IDs %s" % list(src_ids - dest_ids))
 	elif src_ids < dest_ids:
-		print "missing IDs: %s" % list(dest_ids - src_ids)
+		print("missing IDs: %s" % list(dest_ids - src_ids))
 	else:
-		print "everything is ok, total %s IDs" % len(src_ids)
+		print("everything is ok, total %s IDs" % len(src_ids))
 
 
 def setup_subparser(subparsers, config):
@@ -36,7 +36,7 @@ def setup_subparser(subparsers, config):
 	                                     in dest and all IDs used in dest are 
 	                                     defined in src.''')
 	subp.add_argument('src',
-	                  type=argparse.FileType('rb', 0),
+	                  type=argparse.FileType("r", encoding="utf_8_sig"),
 	                  help='''The refrence source file, typically
 	                          ui_strings-en.js.''')
 	subp.add_argument('dest',

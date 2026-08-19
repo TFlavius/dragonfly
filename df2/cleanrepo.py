@@ -1,5 +1,5 @@
-import build
-import jssort
+from . import build
+from . import jssort
 import os
 
 UI_STRINGS_EN = ["src", "ui-strings", "ui_strings-en.js"]
@@ -17,20 +17,20 @@ def normws(src):
                     if not c == "".join(lines):
                         with open(path, "wb") as f:
                             f.write(c)
-                            print "fixed", path
+                            print("fixed", path)
 
 def cleanrepo(args):
     if not os.path.exists(os.path.join(*UI_STRINGS_EN)):
-        print "you must run the tool in the root of a Dragonfly repo."
+        print("you must run the tool in the root of a Dragonfly repo.")
         return
 
-    print "run jssort"
+    print("run jssort")
     args.src = os.path.join(*UI_STRINGS_EN)
     jssort.jssort(args)
-    print "run fixBOM"
+    print("run fixBOM")
     args.src = UI_STRINGS_EN[0]
     build.fix_bom(args)
-    print "run normws"
+    print("run normws")
     normws(UI_STRINGS_EN[0])
 
 def setup_subparser(subparsers, config):

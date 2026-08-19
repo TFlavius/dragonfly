@@ -8,18 +8,19 @@ import os
 import sys
 import argparse
 import json
-import js2db
-import jssort
-import po2js
-import db2js
-import verifyids
-import showconfig
-import build
-import cleanrepo
-import normws
-import codegen.msgdefs
-import codegen.jsclasses
-import codegen.scopedoc
+from . import js2db
+from . import jssort
+from . import po2js
+from . import db2js
+from . import verifyids
+from . import showconfig
+from . import build
+from . import cleanrepo
+from . import normws
+from . import codegen
+from .codegen import msgdefs
+from .codegen import jsclasses
+from .codegen import scopedoc
 
 SOURCE_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -57,11 +58,19 @@ def main():
     parser.set_defaults(config=config)
     parser.set_defaults(root_path=SOURCE_ROOT)
     subparsers = parser.add_subparsers()
-    candidates = globals().values()
-    candidates.extend((getattr(codegen, name)  for name in dir(codegen)))
+    # The codegen submodules are reachable both as module globals and as
+    # attributes of the package, so collect them once. Registering a
+    # subcommand twice makes argparse raise on the duplicate name.
+    candidates = list(globals().values())
+    candidates.extend(getattr(codegen, name) for name in dir(codegen))
+    seen = set()
     for module in candidates:
-        try: getattr(module, "setup_subparser")(subparsers, config)
-        except AttributeError: pass
+        if id(module) in seen:
+            continue
+        seen.add(id(module))
+        try: setup = getattr(module, "setup_subparser")
+        except AttributeError: continue
+        setup(subparsers, config)
     args = parser.parse_args()
     args.func(args)
 

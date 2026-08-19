@@ -2,10 +2,10 @@ import os
 import sys
 import shutil
 import time
-import protoparser
-import protoobjects
-import utils
-import minirest
+from . import protoparser
+from . import protoobjects
+from . import utils
+from . import minirest
 
 def get_timestamp(): return time.strftime("%A, %d %b %Y %H:%M", time.localtime())
 
@@ -260,7 +260,7 @@ def print_index(fp, services_dict, dest):
 def get_scope_services(proto_paths, dest):
     services = {}
     for path in proto_paths:
-        with open(path, "rb") as fp:
+        with open(path, "r", encoding="utf-8") as fp:
             g_scope = protoparser.parse(fp.read())
             service = services.setdefault(g_scope.service.name, {})
             service[g_scope.service.version] = ServiceDoc(g_scope, path, dest)
@@ -272,9 +272,9 @@ def scope_doc(args):
     services = get_scope_services(proto_paths, args.dest)
     for service in services.values():
         for version in service.values():
-            with open(version.html_path, "wb") as fp:
+            with open(version.html_path, "w", encoding="utf-8", newline="") as fp:
                 print_service(fp, services, version.service)
-    with open(os.path.join(args.dest, "index.html"), "wb") as fp:
+    with open(os.path.join(args.dest, "index.html"), "w", encoding="utf-8", newline="") as fp:
          print_index(fp, services, args.dest)
     copy_html_src(os.path.join(SOURCE_ROOT, RESOURCES), args.dest)
 

@@ -1,5 +1,5 @@
 import re
-import protoobjects
+from . import protoobjects
 
 WS = r"\s*"
 WS_PLUS = r"\s+"
@@ -152,17 +152,23 @@ class OptionsEnd(object):
 
 class Option(object):
     # e.g.: option (cpp_hfile) = "modules/scope/src/scope_ecmascript_debugger.h";
-    regexp = reg_exp(WS, r"option", WS, r"\(", IDENT, r"\)", EQ_SIGN,
+    #       option cpp_response = deferred;
+    #
+    # The parentheses mark a custom option. Both spellings appear in the scope
+    # service definitions, and the unparenthesised one used to abort the parse
+    # of the file that carries it.
+    regexp = reg_exp(WS, r"option", WS, r"(?:\(", IDENT, r"\)|", IDENT, r")", EQ_SIGN,
                      r"(?:", IDENT, r"|", STRING, r")", WS, SEMIC, OPTIONAL, WS)
 
     @staticmethod
     def handler(scope, buffer, match):
-        NAME = 1
-        IDENT = 2
-        STRING = 3
+        PAREN_NAME = 1
+        BARE_NAME = 2
+        IDENT = 3
+        STRING = 4
         p = match.group
         value = p(IDENT) or p(STRING)
-        setattr(scope.options, p(NAME), protoobjects.FieldOption(value))
+        setattr(scope.options, p(PAREN_NAME) or p(BARE_NAME), protoobjects.FieldOption(value))
         return scope
 
 class Command(object):
