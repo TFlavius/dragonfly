@@ -1,15 +1,20 @@
 # tools
 
-The build and string tooling that predates `df2`. **Nothing here is supported
-and nothing here is run by the build.**
+`df2/` is the build tool. It is the one supported way to build the client and
+`build.sh` runs it; see `df2/README.md`. It was merged in from
+`TFlavius/dragonfly-build-tools`, which is archived, because it and the client
+reference each other and a change spanning the two could not be one commit
+while they lived apart.
+
+Everything else here is the build and string tooling that predates it.
+**Nothing else here is supported and nothing else here is run by the build.**
 
 It is Python 2 and will not run on any interpreter this project uses. It is
 kept because parts of it have no successor and because it records how the
 client was built and released while Opera maintained it.
 
-`build.sh` used to call `dfbuild.py`. It calls `df2` now, which lives in
-[TFlavius/dragonfly-build-tools](https://github.com/TFlavius/dragonfly-build-tools),
-runs on Python 3 and is the only supported way to build the client.
+`build.sh` used to call `dfbuild.py`. It calls `df2` now, which runs on
+Python 3 and is the only supported way to build the client.
 
 ## Superseded by df2
 
