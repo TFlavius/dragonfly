@@ -23,7 +23,20 @@ set -eu
 # falls back to the plain behaviour.
 cd "$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")"
 
-PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}$PWD/tools/df2"
+# The tool that ships with this checkout has to win. An existing PYTHONPATH is
+# kept, but after ours: "PYTHONPATH=/path/to/dragonfly-build-tools" is what this
+# repository's own README told people to export until df2 moved in here, and an
+# entry ahead of ours would let that stale copy shadow tools/df2.
+#
+# Python splits PYTHONPATH on the platform's separator, which is ";" on Windows
+# and ":" everywhere else. Joining with the wrong one turns the whole variable
+# into a single path that does not exist, and the build dies in
+# ModuleNotFoundError.
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*|Windows*) path_separator=';' ;;
+  *)                             path_separator=':' ;;
+esac
+PYTHONPATH="$PWD/tools/df2${PYTHONPATH:+$path_separator$PYTHONPATH}"
 export PYTHONPATH
 DF2="${DF2:-python3 -m df2.df2}"
 
