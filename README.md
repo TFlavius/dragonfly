@@ -24,15 +24,12 @@ That is the one supported way to build the client. It produces `build/`, in
 which the roughly three hundred scripts and stylesheets of `src/` have become
 one of each.
 
-Building needs `df2`, which lives in
-[TFlavius/dragonfly-build-tools](https://github.com/TFlavius/dragonfly-build-tools)
-and runs on Python 3.9 or later. `build.sh` explains how to point at a checkout
-of it without installing:
+Nothing has to be installed first. The build tool, `df2`, lives in
+`tools/df2` in this repository and needs Python 3.9 or later; `build.sh` puts it
+on the path itself.
 
-    PYTHONPATH=/path/to/dragonfly-build-tools DF2="python3 -m df2.df2" ./build.sh
-
-The `tools/` directory holds the Python 2 tooling that came before `df2`. It is
-kept for reference and nothing runs it; see `tools/README.md`.
+`tools/` also holds the Python 2 tooling that came before `df2`. It is kept for
+reference and nothing runs it; see `tools/README.md`.
 
 ## Running test builds of dragonfly
 
