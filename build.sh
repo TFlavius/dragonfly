@@ -28,15 +28,15 @@ cd "$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")"
 # repository's own README told people to export until df2 moved in here, and an
 # entry ahead of ours would let that stale copy shadow tools/df2.
 #
-# Python splits PYTHONPATH on the platform's separator, which is ";" on Windows
-# and ":" everywhere else. Joining with the wrong one turns the whole variable
-# into a single path that does not exist, and the build dies in
-# ModuleNotFoundError.
-case "$(uname -s 2>/dev/null)" in
-  MINGW*|MSYS*|CYGWIN*|Windows*) path_separator=';' ;;
-  *)                             path_separator=':' ;;
-esac
-PYTHONPATH="$PWD/tools/df2${PYTHONPATH:+$path_separator$PYTHONPATH}"
+# Both values come from the interpreter that will consume them rather than from
+# this shell. os.pathsep is the separator that same Python splits on, and
+# os.path.abspath yields a path it can resolve: under MSYS a POSIX path is
+# translated on the way to a native process only while the value looks like a
+# single path, so composing one here with any separator would hand Python text
+# it cannot resolve, whichever separator were chosen.
+df2_dir="$(python3 -c "import os; print(os.path.abspath('tools/df2'))")"
+path_sep="$(python3 -c "import os; print(os.pathsep)")"
+PYTHONPATH="$df2_dir${PYTHONPATH:+$path_sep$PYTHONPATH}"
 export PYTHONPATH
 DF2="${DF2:-python3 -m df2.df2}"
 
