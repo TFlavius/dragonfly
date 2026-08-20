@@ -180,10 +180,17 @@ def _process_directives(root, filepath, vars):
     TODO: Refactor this to use separate functions for each directive and
     just pass in a context for it to keep stuff in.
     """
-    file = open(filepath)
+    # Both ends are explicit about encoding and line endings, the way the
+    # license and keyword passes below already are. Without newline="" the read
+    # translates CRLF to LF and the write translates LF back to os.linesep, so
+    # the bundle came out CRLF on Windows and LF everywhere else from identical
+    # sources. Without the encoding the decode follows the machine's locale,
+    # which is a second way for one checkout to build different bytes than
+    # another.
+    file = codecs.open(filepath, "r", encoding="utf_8_sig")
 
     tmpfd, tmppath = tempfile.mkstemp(".tmp", "dfbuild.")
-    tmpfile = os.fdopen(tmpfd, "w")
+    tmpfile = os.fdopen(tmpfd, "w", encoding="utf_8_sig", newline="")
 
     known_files = {}
     current_css_file = None
