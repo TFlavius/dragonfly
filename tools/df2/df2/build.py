@@ -979,12 +979,22 @@ def detect_vcs(path="."):
 def describe_working_tree():
     """Identify the checked-out revision without touching the working tree.
 
-    @return (revision, short hash). The revision is a UTC date, matching what
-            the git branch of the release path produces. The hash is the
-            current commit, or "unknown" outside a repository.
+    @return (revision, short hash). The revision is the UTC date of the commit
+            itself, not today's, so that building one commit twice describes it
+            the same way however far apart the builds are; outside a repository
+            there is nothing else to go on and it falls back to today. The hash
+            is the current commit, or "unknown" outside a repository.
     """
     out, err, code = cmd_call("git", "rev-parse", "--short", "HEAD")
     short_hash = out.strip() if code == 0 else "unknown"
+
+    # %ct is the commit time as a Unix timestamp, so the date is derived without
+    # depending on the timezone of whichever machine is building.
+    stamp, err, stamp_code = cmd_call("git", "show", "-s", "--format=%ct", "HEAD")
+    stamp = stamp.strip()
+    if stamp_code == 0 and stamp.isdigit():
+        return time.strftime("%Y.%m.%d", time.gmtime(int(stamp))), short_hash
+
     return time.strftime("%Y.%m.%d", time.gmtime()), short_hash
 
 def filter_git_login_msg(input_string):

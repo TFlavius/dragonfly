@@ -7,6 +7,13 @@
 # checksum published by the same uploader are attested by the same party, which
 # is worth nothing. Nothing in this workflow may therefore write a checksum of
 # its own into the release, or the browser would be invited to trust it.
+#
+# This job is the trusted publisher of code the browser then runs with full
+# control of itself, so two rules hold throughout. No value derived from a ref
+# is ever interpolated into a `run:` script -- a tag may legally contain shell
+# metacharacters, and a GitHub expression is substituted before the shell parses
+# the script -- and every action is pinned to a full commit SHA, which is the
+# only immutable reference GitHub offers.
 name: Release
 
 on:
@@ -22,63 +29,82 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0   # the bundle stamp reads the commit date
 
-      - uses: actions/setup-python@v5
+      # actions/setup-python v7.0.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.x'
 
       - name: Name the release
         id: name
-        run: |
-          tag="${GITHUB_REF_NAME}"
-          version="${tag#v}"
-          echo "tag=$tag"         >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "archive=dragonfly-$version.zip" >> "$GITHUB_OUTPUT"
-
-      - name: Build the bundle
-        run: ./build.sh --revision "${{ steps.name.outputs.version }}" -t "${{ steps.name.outputs.tag }}"
-
-      - name: Assemble the archive
-        id: assemble
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
           set -eu
-          version='${{ steps.name.outputs.version }}'
-          archive='${{ steps.name.outputs.archive }}'
+          # The grammar is the gate, not an assumption. Anything outside it -- a
+          # tag carrying shell metacharacters, an apostrophe, a newline -- stops
+          # the release here rather than reaching a shell or a release title.
+          printf '%s\n' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || {
+            echo "refusing to release from tag '$TAG': expected v<major>.<minor>.<patch>" >&2
+            exit 1
+          }
 
+          version="${TAG#v}"
+          {
+            printf 'tag=%s\n'     "$TAG"
+            printf 'version=%s\n' "$version"
+            printf 'archive=dragonfly-%s.zip\n' "$version"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build the bundle
+        env:
+          TAG: ${{ steps.name.outputs.tag }}
+          VERSION: ${{ steps.name.outputs.version }}
+        run: ./build.sh --revision "$VERSION" -t "$TAG"
+
+      - name: Assemble the archive
+        env:
+          ARCHIVE: ${{ steps.name.outputs.archive }}
+        run: |
+          set -eu
           # Exactly the files the browser stages, in the layout it stages them
           # in, so that unpacking this over an installed client replaces it
           # rather than merging into it. defs/ and fall-back-urls.json are build
           # products the client does not read at run time and are left out.
           staging="$(mktemp -d)/dragonfly"
           mkdir -p "$staging/script" "$staging/style"
-          cp build/AUTHORS            "$staging/AUTHORS"
-          cp build/client-en.xml      "$staging/client-en.xml"
-          cp build/client.xml         "$staging/client.xml"
+          cp build/AUTHORS             "$staging/AUTHORS"
+          cp build/client-en.xml       "$staging/client-en.xml"
+          cp build/client.xml          "$staging/client.xml"
           cp build/script/dragonfly.js "$staging/script/dragonfly.js"
           cp build/style/dragonfly.css "$staging/style/dragonfly.css"
           # Named Apache-2.0 rather than LICENSE, because that is the name the
           # browser's bundled copy carries and the two layouts have to agree.
-          cp LICENSE                  "$staging/Apache-2.0"
+          cp LICENSE                   "$staging/Apache-2.0"
 
-          # A rebuild of the same tag should produce the same bytes, so the
-          # archive takes its timestamps from the tagged commit rather than from
-          # the clock, and -X drops the extra attributes that vary by runner.
-          stamp="$(git log -1 --format=%cd --date=format:%Y%m%d%H%M.%S)"
-          find "$staging" -exec touch -t "$stamp" {} +
+          # Timestamps come from the tagged commit rather than the clock, so a
+          # rebuild of one tag on this runner image yields the same bytes; -X
+          # drops the extra attributes that vary between machines.
+          stamp="$(git log -1 --format=%cd --date=format-local:%Y%m%d%H%M.%S)"
+          TZ=UTC find "$staging" -exec touch -t "$stamp" {} +
 
-          ( cd "$(dirname "$staging")" && zip -X -r -q "$OLDPWD/$archive" dragonfly )
+          ( cd "$(dirname "$staging")" && zip -X -r -q "$OLDPWD/$ARCHIVE" dragonfly )
 
           echo "--- archive contents ---"
-          unzip -l "$archive"
-          echo "sha256: $(sha256sum "$archive" | cut -d' ' -f1)"
+          unzip -l "$ARCHIVE"
+          echo "sha256: $(sha256sum "$ARCHIVE" | cut -d' ' -f1)"
 
       - name: Check the archive against the staged layout
+        env:
+          ARCHIVE: ${{ steps.name.outputs.archive }}
         run: |
           set -eu
-          archive='${{ steps.name.outputs.archive }}'
-          expected="dragonfly/
+          cat > /tmp/expected-layout <<'LAYOUT'
+          dragonfly/
           dragonfly/Apache-2.0
           dragonfly/AUTHORS
           dragonfly/client-en.xml
@@ -86,26 +112,34 @@ jobs:
           dragonfly/script/
           dragonfly/script/dragonfly.js
           dragonfly/style/
-          dragonfly/style/dragonfly.css"
-          actual="$(unzip -Z1 "$archive" | sort)"
-          if [ "$(echo "$expected" | sed 's/^ *//' | sort)" != "$actual" ]; then
-            echo "archive layout does not match the staged layout" >&2
-            echo "expected:"; echo "$expected" | sed 's/^ *//' | sort
-            echo "actual:";   echo "$actual"
+          dragonfly/style/dragonfly.css
+          LAYOUT
+          unzip -Z1 "$ARCHIVE" | sort > /tmp/actual-layout
+          sort -o /tmp/expected-layout /tmp/expected-layout
+          if ! diff -u /tmp/expected-layout /tmp/actual-layout; then
+            echo "archive layout does not match the layout the browser stages" >&2
             exit 1
           fi
 
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.name.outputs.tag }}
+          VERSION: ${{ steps.name.outputs.version }}
+          ARCHIVE: ${{ steps.name.outputs.archive }}
+          REPO: ${{ github.repository }}
         run: |
-          gh release create '${{ steps.name.outputs.tag }}' \
-            '${{ steps.name.outputs.archive }}' \
-            --title 'Opera Dragonfly ${{ steps.name.outputs.version }}' \
-            --notes 'Developer tools client bundle.
+          set -eu
+          cat > /tmp/notes.md <<'NOTES'
+          Developer tools client bundle.
 
-          Verify the download against the `digest` field this release advertises through the GitHub API, not against any checksum published in these notes:
+          Verify the download against the `digest` field this release advertises through the GitHub API, and not against any checksum written in these notes. That digest is computed by GitHub when the asset is uploaded and served from a different host than the asset itself; a checksum published here would be attested by whoever published the archive, which establishes nothing.
+          NOTES
+          {
+            printf '\n    gh api repos/%s/releases/tags/%s --jq ".assets[].digest"\n\n' "$REPO" "$TAG"
+            printf 'Unpack it over the `dragonfly` directory beside the browser resources, or into the profile to override that copy.\n'
+          } >> /tmp/notes.md
 
-              gh api repos/${{ github.repository }}/releases/tags/${{ steps.name.outputs.tag }} --jq ".assets[].digest"
-
-          Unpack it over the `dragonfly` directory beside the browser'"'"'s resources, or in the profile to override that copy.'
+          gh release create "$TAG" "$ARCHIVE" \
+            --title "Opera Dragonfly $VERSION" \
+            --notes-file /tmp/notes.md
