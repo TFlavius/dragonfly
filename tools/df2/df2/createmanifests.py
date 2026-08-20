@@ -38,7 +38,7 @@ def get_timestamp(path = None):
 
 def get_resources(os_path, web_path, file_name):
     resources = []
-    with open(os.path.join(os_path, file_name), 'r') as f:
+    with open(os.path.join(os_path, file_name), "r", encoding="utf_8_sig", newline="") as f:
         content = f.read()
         for match in _re_resource.finditer(content):
             resource = filter(bool, match.groups())[0]

@@ -679,7 +679,10 @@ def make_build_archive(src, dest_dir, file_name):
     z = zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED)
     files = [file_name]
 
-    with open(os.path.join(src, file_name), 'r') as f:
+    # Explicit for the same reason as the directive pass above: the default
+    # decode follows the host locale, which misreads a non-ASCII linked path
+    # on Windows, and the default newline handling is implicit.
+    with open(os.path.join(src, file_name), "r", encoding="utf_8_sig", newline="") as f:
         content = f.read()
         for match in _re_linked_source.finditer(content):
             path = os.path.normpath(match.group(1) or match.group(2))
