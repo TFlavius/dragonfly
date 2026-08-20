@@ -180,10 +180,17 @@ def _process_directives(root, filepath, vars):
     TODO: Refactor this to use separate functions for each directive and
     just pass in a context for it to keep stuff in.
     """
-    file = open(filepath)
+    # Both ends are explicit about encoding and line endings, the way the
+    # license and keyword passes below already are. Without newline="" the read
+    # translates CRLF to LF and the write translates LF back to os.linesep, so
+    # the bundle came out CRLF on Windows and LF everywhere else from identical
+    # sources. Without the encoding the decode follows the machine's locale,
+    # which is a second way for one checkout to build different bytes than
+    # another.
+    file = codecs.open(filepath, "r", encoding="utf_8_sig")
 
     tmpfd, tmppath = tempfile.mkstemp(".tmp", "dfbuild.")
-    tmpfile = os.fdopen(tmpfd, "w")
+    tmpfile = os.fdopen(tmpfd, "w", encoding="utf_8_sig", newline="")
 
     known_files = {}
     current_css_file = None
@@ -672,7 +679,10 @@ def make_build_archive(src, dest_dir, file_name):
     z = zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED)
     files = [file_name]
 
-    with open(os.path.join(src, file_name), 'r') as f:
+    # Explicit for the same reason as the directive pass above: the default
+    # decode follows the host locale, which misreads a non-ASCII linked path
+    # on Windows, and the default newline handling is implicit.
+    with open(os.path.join(src, file_name), "r", encoding="utf_8_sig", newline="") as f:
         content = f.read()
         for match in _re_linked_source.finditer(content):
             path = os.path.normpath(match.group(1) or match.group(2))

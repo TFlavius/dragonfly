@@ -35,14 +35,14 @@ def deep_update(target, src):
 
 def get_config():
     config = {}
-    with open(os.path.join(SOURCE_ROOT, "DEFAULTS"), "r") as f:
+    with open(os.path.join(SOURCE_ROOT, "DEFAULTS"), "r", encoding="utf_8_sig", newline="") as f:
         config.update(json.loads(f.read()))
     home = os.environ.get('HOME') or os.environ.get('HOMEPATH')
     if home:
         for name in ['df2.ini', '.df2', 'DF2', 'df2.cfg']:
             path = os.path.abspath(os.path.join(home, name))
             if os.path.isfile(path):
-                with open(path, "r") as f:
+                with open(path, "r", encoding="utf_8_sig", newline="") as f:
                     deep_update(config, json.loads(f.read()))
                 break
     return config
