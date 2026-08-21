@@ -164,7 +164,7 @@ def _remove_strict(content):
   return _re_strict.sub("", content, count=1)
 
 _concatcomment =u"""
-/* dfbuild: concatenated from: %s */
+/* df2: concatenated from: %s */
 """
 
 def _process_directive_files(dirpath, vars):
