@@ -136,20 +136,19 @@ cls.GeneralView.create_ui_widgets = function()
       "show-only-normal-and-gadget-type-windows": true,
       "shortcuts": null,
       "shortcuts-hash": "",
-      "track-usage": true,
+      // Empty by default: see the jquery command in src/repl/dfcommands.js.
+      "jquery-url": "",
     },
     // key-label map
     {
       "show-views-menu": ui_strings.S_SWITCH_SHOW_VIEWS_MENU,
       "show-only-normal-and-gadget-type-windows": ui_strings.S_SWITCH_SHOW_ONLY_NORMAL_AND_GADGETS_TYPE_WINDOWS,
-      "track-usage": ui_strings.S_SWITCH_TRACK_USAGE,
     },
     // settings map
     {
       checkboxes:
       [
         "show-only-normal-and-gadget-type-windows",
-        "track-usage",
       ],
       customSettings:
       [
