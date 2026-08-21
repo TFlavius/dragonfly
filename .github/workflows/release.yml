@@ -127,19 +127,13 @@ jobs:
           TAG: ${{ steps.name.outputs.tag }}
           VERSION: ${{ steps.name.outputs.version }}
           ARCHIVE: ${{ steps.name.outputs.archive }}
-          REPO: ${{ github.repository }}
         run: |
           set -eu
-          cat > /tmp/notes.md <<'NOTES'
-          Developer tools client bundle.
-
-          Verify the download against the `digest` field this release advertises through the GitHub API, and not against any checksum written in these notes. That digest is computed by GitHub when the asset is uploaded and served from a different host than the asset itself; a checksum published here would be attested by whoever published the archive, which establishes nothing.
-          NOTES
-          {
-            printf '\n    gh api repos/%s/releases/tags/%s --jq ".assets[].digest"\n\n' "$REPO" "$TAG"
-            printf 'Unpack it over the `dragonfly` directory beside the browser resources, or into the profile to override that copy.\n'
-          } >> /tmp/notes.md
-
+          # GitHub generates the notes. What a reader wants on a release page is
+          # what changed and a link to the diff, which GitHub assembles from the
+          # merged pull requests; hand-written notes here competed with that and
+          # said less. How to verify a download is documented in README.md, which
+          # is where it belongs and where it survives being read later.
           gh release create "$TAG" "$ARCHIVE" \
             --title "Opera Dragonfly $VERSION" \
-            --notes-file /tmp/notes.md
+            --generate-notes
