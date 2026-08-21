@@ -33,7 +33,7 @@ reference and nothing runs it; see `tools/README.md`.
 
 ## Releasing Dragonfly
 
-Pushing a tag of the form `v<YYYY>.<MM>.<DD>.<n>` publishes a release, for example `v2026.08.21.1`. The date is the release date, zero padded, and `<n>` is the build within that day counting from 1. The client's releases have been dated rather than semantic since 2011, and nothing here is versioned semantically, so there is no major number that would mean anything. The workflow in `.github/workflows/release.yml` builds the bundle, assembles `dragonfly-<version>.zip` and uploads it; nothing is done by hand, and a tag outside that grammar is refused rather than released.
+Pushing a tag of the form `v<YYYY>.<MM>.<DD>` publishes a release, for example `v2026.08.21`. The date is the release date, zero padded. A second release on the same day adds a build number, `v2026.08.21.1`, then `.2`, and so on; the unnumbered tag is that day's first, so `.0` is refused as a second spelling of it. The client's releases have been dated rather than semantic since 2011, and nothing here is versioned semantically, so there is no major number that would mean anything. The workflow in `.github/workflows/release.yml` builds the bundle, assembles `dragonfly-<version>.zip` and uploads it; nothing is done by hand, and a tag outside that grammar is refused rather than released.
 
 The archive holds exactly what a browser loads, under a single `dragonfly/` directory, so that unpacking it over an installed client replaces that client rather than merging into it:
 
@@ -46,7 +46,7 @@ The archive holds exactly what a browser loads, under a single `dragonfly/` dire
 
 The licence is named `Apache-2.0` rather than `LICENSE` because that is the name the browser's own bundled copy carries, and the two layouts have to agree for a replacement to be a replacement. `defs/` and `fall-back-urls.json` are build products the client does not read at run time and are left out.
 
-The version is the tag without its leading `v`. It reaches the bundle through `df2`'s `--revision`, so an installed client can be compared against an available one without unpacking anything. Compare the components numerically after splitting on `.` rather than comparing the strings: the date part happens to sort correctly because it is zero padded, but `<n>` is not, so `2026.08.21.10` sorts before `2026.08.21.2`.
+The version is the tag without its leading `v`. It reaches the bundle through `df2`'s `--revision`, so an installed client can be compared against an available one without unpacking anything. Compare the components numerically after splitting on `.` rather than comparing the strings, treating a missing fourth component as 0: the date part happens to sort correctly because it is zero padded, but `<n>` is not, so `2026.08.21.10` sorts before `2026.08.21.2`, and `2026.08.21` sorts after `2026.08.21.1` unless the absent build number is filled in.
 
 **Verify a download against the release's `digest`, not against any checksum in the release notes:**
 
