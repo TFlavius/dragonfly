@@ -48,8 +48,8 @@ jobs:
           # The grammar is the gate, not an assumption. Anything outside it -- a
           # tag carrying shell metacharacters, an apostrophe, a newline -- stops
           # the release here rather than reaching a shell or a release title.
-          printf '%s\n' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || {
-            echo "refusing to release from tag '$TAG': expected v<major>.<minor>.<patch>" >&2
+          printf '%s\n' "$TAG" | grep -Eq '^v[0-9]{4}\.(0[1-9]|1[0-2])\.(0[1-9]|[12][0-9]|3[01])(\.[1-9][0-9]*)?$' || {
+            echo "refusing to release from tag '$TAG': expected v<YYYY>.<MM>.<DD> or v<YYYY>.<MM>.<DD>.<n>" >&2
             exit 1
           }
 
