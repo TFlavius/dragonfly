@@ -1442,6 +1442,7 @@ ui_strings.S_REPL_HELP_COMMAND_DESC = "Show a list of all available commands";
 
 /* DESC: Description of the "jquery" command in the repl */
 ui_strings.S_REPL_JQUERY_COMMAND_DESC = "Load jQuery in the active tab";
+ui_strings.S_LABEL_JQUERY_URL = "URL the jquery command loads";
 ui_strings.S_REPL_JQUERY_NO_URL = "No jQuery URL is set. Set jquery-url in the general settings to the copy you want to load.";
 
 /* DESC: Printed in the command line view when it is shown for the first time. */
