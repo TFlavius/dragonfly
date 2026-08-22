@@ -65,16 +65,7 @@ DFLCommands.commands.jquery =
 {
   command: function(view, data, service)
   {
-    // Empty by default, because the client is not a place to hard-code a
-    // third-party host: this injects whatever is at that URL into the page
-    // being debugged, and it did so over plain http. Set jquery-url in the
-    // general settings to the copy you want.
-    var url = window.settings.general.get("jquery-url");
-    if (!url)
-    {
-      data.add_message(ui_strings.S_REPL_JQUERY_NO_URL);
-      return;
-    }
+    var url = "http://code.jquery.com/jquery.min.js";
     var code = ["(function(){",
                 "  var script = document.createElement('script');",
                 "  script.setAttribute('src', '" + url + "');",

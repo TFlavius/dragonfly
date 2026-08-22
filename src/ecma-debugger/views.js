@@ -136,14 +136,11 @@ cls.GeneralView.create_ui_widgets = function()
       "show-only-normal-and-gadget-type-windows": true,
       "shortcuts": null,
       "shortcuts-hash": "",
-      // Empty by default: see the jquery command in src/repl/dfcommands.js.
-      "jquery-url": "",
     },
     // key-label map
     {
       "show-views-menu": ui_strings.S_SWITCH_SHOW_VIEWS_MENU,
       "show-only-normal-and-gadget-type-windows": ui_strings.S_SWITCH_SHOW_ONLY_NORMAL_AND_GADGETS_TYPE_WINDOWS,
-      "jquery-url": ui_strings.S_LABEL_JQUERY_URL,
     },
     // settings map
     {
@@ -153,32 +150,12 @@ cls.GeneralView.create_ui_widgets = function()
       ],
       customSettings:
       [
-        'jquery-url',
         'hr',
         'ui-language'
       ]
     },
     // custom templates
     {
-      'jquery-url':
-      function(setting)
-      {
-        // A text field rather than a checkbox: the command injects whatever is
-        // at this URL into the page being debugged and runs it there, so the
-        // client ships no default and the person debugging names the copy.
-        return (
-        [
-          'setting-composite',
-          ['label',
-            setting.label_map['jquery-url'] + ': ',
-            ['input',
-              'type', 'text',
-              'handler', 'set-jquery-url',
-              'value', setting.get('jquery-url')
-            ]
-          ]
-        ] );
-      },
       'hr':
       function(setting)
       {
@@ -212,11 +189,6 @@ cls.GeneralView.create_ui_widgets = function()
   {
     UIWindowBase.showWindow('test-po-file');
   }
-
-  eventHandlers.change['set-jquery-url'] = function(event)
-  {
-    settings.general.set('jquery-url', event.target.value);
-  };
 
   eventHandlers.change['set-ui-language'] = function(event)
   {
