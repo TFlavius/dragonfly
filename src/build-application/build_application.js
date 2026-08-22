@@ -249,31 +249,9 @@ window.app.build_application = function(on_services_created, on_services_enabled
     window.services.add(new ServiceClass());
   }
 
-  var report_usage = function()
-  {
-    if (settings.general.get("track-usage") &&
-        // Don't phone home when developing
-        // (port is typically only used in that situation).
-        !location.port)
-    {
-      var trackerurl = "/app/user-count"
-      var tracker = new cls.UserTracker(trackerurl);
-      var cb = function(status, url)
-      {
-        if (status != 200 && !cls.ScopeHTTPInterface.is_enabled)
-        {
-          opera.postError("Usertracker could not send heartbeat to tracker server at " + url + ". Got status " + status);
-        }
-      };
-      tracker.call_home(cb);
-    }
-  }
-
   // ensure that the static methods on cls.ServiceBase exist.
   new cls.ServiceBase();
   new ActionBroker();
-
-  window.messages.addListener("application-setup", report_usage, true);
 
   // global objects
   window.tagManager = window.tag_manager = app_ctx.tag_manager = new window.cls.TagManager();

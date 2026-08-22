@@ -36,35 +36,12 @@ window.cls.Client = function()
     }
     else
     {
-      var
-      has_window_manager = servicelist.indexOf('window-manager') != -1,
-      i = 0,
-      core_version = '',
-      fallback_version = !has_window_manager && 'protocol-3' || '';
-
-      if(!fallback_version)
-      {
-        for( ; (core_version = servicelist[i] ) && !(core_version.slice(0, 5) == 'core-'); i++);
-        if(core_version)
-        {
-          if(core_version == 'core-2-5')
-          {
-            fallback_version = 'core-2-4';
-          }
-          else
-          {
-            fallback_version = core_version;
-          }
-        }
-        else
-        {
-          if(has_window_manager)
-          {
-            fallback_version = 'protocol-4';
-          }
-        }
-      }
-      handle_fallback.call(new XMLHttpRequest(), fallback_version);
+      // A host without stp-1 used to be handled by fetching /app/fall-back-urls.json
+      // and offering to redirect to a client build old enough to speak to it. That
+      // file was only ever served by dragonfly.opera.com, and the paths it returned
+      // were on that host, so the fetch cannot succeed and the redirect has nowhere
+      // to go. Saying so is more use than a failed request.
+      show_info(ui_strings.S_INFO_NO_COMPATIBLE_VERSION, 0);
     }
   };
 
@@ -246,53 +223,6 @@ window.cls.Client = function()
       window_controls.parentNode.removeChild(window_controls);
     }
     document.documentElement.render(templates.window_controls_close());
-  };
-
-  var handle_fallback = function(version)
-  {
-    var
-    href = location.href,
-    protocol = location.protocol + '//',
-    hostname = location.hostname,
-    port = location.port ? ':' + location.port : '',
-    path = location.pathname,
-    file_name = path.slice(path.lastIndexOf('/') + 1),
-    fallback_filename = '/app/fall-back-urls.json',
-    type = href.indexOf('cutting-edge') > -1 && 'cutting-edge' || 'default',
-    search = location.search;
-
-    file_name = file_name.indexOf('.') > -1 && file_name || '';
-    this.onload = function()
-    {
-      if (this.status != 200)
-      {
-        opera.postError(ui_strings.S_DRAGONFLY_INFO_MESSAGE +
-            "could not load fallback urls. (during local development this is OK!)");
-        return;
-      }
-      var fallback_urls = JSON.parse(this.responseText);
-      if (fallback_urls && fallback_urls[type] && version in fallback_urls[type])
-      {
-        if (confirm(ui_strings.S_CONFIRM_LOAD_COMPATIBLE_VERSION))
-        {
-          location = protocol +
-                     hostname + port +
-                     fallback_urls[type][version] +
-                     file_name + search;
-        }
-      }
-      else
-      {
-        alert(ui_strings.S_INFO_NO_COMPATIBLE_VERSION);
-      }
-    };
-    this.open('GET', protocol + hostname + port + fallback_filename);
-    this.send(null);
-  };
-
-  this.handle_fallback = function(version)
-  {
-    handle_fallback.call(new XMLHttpRequest(), version);
   };
 
   /**
