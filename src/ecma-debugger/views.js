@@ -151,7 +151,9 @@ cls.GeneralView.create_ui_widgets = function()
       customSettings:
       [
         'hr',
-        'ui-language'
+        'ui-language',
+        'hr',
+        'update-devtools-client'
       ]
     },
     // custom templates
@@ -160,6 +162,25 @@ cls.GeneralView.create_ui_widgets = function()
       function(setting)
       {
         return ['hr'];
+      },
+      'update-devtools-client':
+      function(setting)
+      {
+        // A button rather than a stored setting. The browser never looks for a
+        // newer client on its own, so pressing this is the only thing that
+        // starts an update, and there is no state worth keeping between
+        // presses. The result is written beside the button by the handler.
+        return (
+        [
+          'setting-composite',
+          ui_strings.S_LABEL_UPDATE_DEVTOOLS_CLIENT + ': ',
+          ['button',
+            ui_strings.S_BUTTON_UPDATE_DEVTOOLS_CLIENT,
+            'type', 'button',
+            'handler', 'update-devtools-client',
+            'class', 'ui-button'
+          ]
+        ] );
       },
       'ui-language':
       function(setting)
@@ -221,6 +242,118 @@ cls.GeneralView.create_ui_widgets = function()
       ]
     ];
     container.clearAndRender(tmpl);
+  };
+
+  eventHandlers.click['update-devtools-client'] = function(event, target)
+  {
+    // One press, one update. The button carries disabled from the moment a
+    // request goes out until its reply comes back, and this is what makes
+    // that mean something: the delegated click handler runs off a listener on
+    // the document, so it must not depend on the element having suppressed
+    // the event itself.
+    if (target.getAttribute('disabled'))
+      return;
+
+    // Scope transport status codes, as named in cls.ServiceBase's status map.
+    const OK = 0;
+    const SERVICE_ALREADY_ENABLED = 9;
+    // Fields of DesktopUtils.DevToolsClientUpdate, by field number less one.
+    const STATUS = 0;
+    const TAG = 1;
+    const MESSAGE = 2;
+    // Values of its status enum. FAILED, the third, is the default branch.
+    const UPDATED = 1;
+    const ALREADY_CURRENT = 2;
+
+    var service = window.services && window.services['desktop-utils'];
+    var composite = target.parentNode;
+    var info = composite.getElementsByClassName('update-devtools-client-info')[0] ||
+               composite.render(['div',
+                                 'class', 'update-devtools-client-info selectable']);
+
+    var say = function(template)
+    {
+      target.removeAttribute('disabled');
+      info.clearAndRender(template);
+    };
+
+    // The release tag is optional on the wire even where the contract says it
+    // is sent, so it is a line of its own that is left out when it is absent
+    // rather than a hole in a sentence.
+    var release_line = function(tag)
+    {
+      return tag
+             ? [['p', ui_strings.S_LABEL_UPDATE_DEVTOOLS_CLIENT_RELEASE + ': ' + tag]]
+             : [];
+    };
+
+    var rejected = function(status)
+    {
+      var name = cls.ServiceBase.get_status_map()[status] || String(status);
+      say([['p', ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_REJECTED
+                           .replace("%s", name)]]);
+    };
+
+    var on_response = function(status, message)
+    {
+      if (status != OK)
+      {
+        rejected(status);
+        return;
+      }
+      switch (message[STATUS])
+      {
+        case UPDATED:
+          say([['p', ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_UPDATED]]
+              .concat(release_line(message[TAG])));
+          break;
+        case ALREADY_CURRENT:
+          say([['p', ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_CURRENT]]
+              .concat(release_line(message[TAG])));
+          break;
+        default:
+          // FAILED carries the browser's own reason. Any other value is a
+          // contract this client does not know, and the number is then the
+          // only thing there is to show.
+          say([['p', ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_FAILED
+                               .replace("%s", message[MESSAGE] ||
+                                              String(message[STATUS]))]]);
+      }
+    };
+
+    var on_enabled = function(status, message)
+    {
+      // A command sent to a service that is not enabled is answered with
+      // ServiceNotEnabled instead of being run, and enabling one that is
+      // already enabled is answered with ServiceAlreadyEnabled. Both of those
+      // outcomes mean the service is on, which is all this needs. The reply
+      // is taken by tag, so the profile bookkeeping in cls.Scope never sees
+      // an enable it did not ask for.
+      if (status != OK && status != SERVICE_ALREADY_ENABLED)
+      {
+        rejected(status);
+        return;
+      }
+      service.requestUpdateDevToolsClient(
+        window.tagManager.set_callback(null, on_response), []);
+    };
+
+    // The interface is generated from the host's own protocol description, so
+    // the request method is there if and only if this browser declares the
+    // command. One check covers a host that does not offer desktop-utils and a
+    // host that offers a version of it from before the command, and unlike a
+    // version comparison it cannot disagree with what the host actually has.
+    if (!service || !service.requestUpdateDevToolsClient)
+    {
+      info.clearAndRender(
+        [['p', ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_UNSUPPORTED]]);
+      return;
+    }
+
+    target.setAttribute('disabled', 'disabled');
+    info.clearAndRender([['p', ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_WORKING]]);
+    window.services.scope.requestEnable(
+      window.tagManager.set_callback(null, on_enabled), ['desktop-utils']);
   };
 
 }

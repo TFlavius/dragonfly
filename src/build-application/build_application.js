@@ -260,6 +260,17 @@ window.app.build_application = function(on_services_created, on_services_enabled
   // create window.services namespace and register it.
   app_ctx.services = new cls.Namespace("services");
   cls.ServiceBase.register_services(app_ctx.services);
+  // A service is only ever reachable if it has an entry here. Without one,
+  // build_and_enable_services finds no window.services[name] to hand the
+  // host's command map to, and no request method is generated however much
+  // the host advertises.
+  //
+  // desktop-utils is in no profile on purpose. It drives no view and carries
+  // no events; the one command the client sends to it runs when a person
+  // presses a button in the general settings, and that handler enables the
+  // service itself. Enabling it with a profile would turn it on for every
+  // session that never touches it, and would turn it off again on a switch
+  // to the profiler.
   [
     'scope',
     'console-logger',
@@ -270,7 +281,8 @@ window.app.build_application = function(on_services_created, on_services_enabled
     'resource-manager',
     'document-manager',
     'profiler',
-    'overlay'
+    'overlay',
+    'desktop-utils'
   ].forEach(create_raw_interface);
   var params = this.helpers.parse_url_arguments();
   if(params.debug)
