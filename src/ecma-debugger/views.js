@@ -219,11 +219,24 @@ cls.GeneralView.create_ui_widgets = function()
   /**
    * Whether a file path lies inside a directory.
    *
+   * The platform is read from the shape of the directory's root and from
+   * nothing else: a drive letter, or the two backslashes of a UNC share. A
+   * backslash anywhere further along says nothing at all, because on Unix it
+   * is an ordinary character in a name. Treating one as a separator there
+   * would rewrite ".opera\\other", which sits beside the profile, into
+   * ".opera/other", which sits below it, and folding case on the strength of
+   * one would let a name that differs from the profile only in case match it.
+   * Both mistakes report a document as the profile copy when it is not, and
+   * that is the branch that asserts rather than hedges.
+   *
+   * So separators and case are touched only where the file system itself
+   * ignores them, and a Unix path is compared byte for byte. A shape that is
+   * not recognised is compared as Unix, which can only cost a match this
+   * would otherwise have made, never invent one.
+   *
    * OpFolderManager appends the platform separator to every folder path it
    * stores, but that is its behaviour rather than a promise, so a missing one
-   * is added here. Case is ignored only where the directory is a Windows
-   * path, because two Linux directories differing only in case are two
-   * directories.
+   * is added here.
    *
    * @param {String} path A native file path.
    * @param {String} directory A native directory path.
@@ -232,16 +245,16 @@ cls.GeneralView.create_ui_widgets = function()
   var path_is_inside = function(path, directory)
   {
     var is_windows = /^[a-zA-Z]:[\/\\]/.test(directory) ||
-                     directory.indexOf('\\') != -1;
-    var dir = directory.replace(/\\/g, '/');
-    if (dir.slice(-1) != '/')
-      dir += '/';
-    var file = path.replace(/\\/g, '/');
+                     /^\\\\/.test(directory);
+    var dir = directory;
+    var file = path;
     if (is_windows)
     {
-      dir = dir.toLowerCase();
-      file = file.toLowerCase();
+      dir = dir.replace(/\\/g, '/').toLowerCase();
+      file = file.replace(/\\/g, '/').toLowerCase();
     }
+    if (dir.slice(-1) != '/')
+      dir += '/';
     return file.indexOf(dir) == 0;
   };
 
