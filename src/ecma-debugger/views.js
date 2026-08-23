@@ -125,6 +125,200 @@ cls.GeneralView = function(id, name, container_class)
 
 cls.GeneralView.create_ui_widgets = function()
 {
+  // Scope transport status codes, as named in cls.ServiceBase's status map.
+  const SCOPE_OK = 0;
+  const SCOPE_SERVICE_ALREADY_ENABLED = 9;
+
+  /**
+   * The name of a Scope transport status, for a message a person will read.
+   * @param {Number} status The status the host answered with.
+   * @return {String} its name, or the number when it has none.
+   */
+  var scope_status_name = function(status)
+  {
+    return cls.ServiceBase.get_status_map()[status] || String(status);
+  };
+
+  /**
+   * Use a desktop-utils command, enabling the service first.
+   *
+   * desktop-utils is in no profile, so nothing else turns it on. A command
+   * sent to a service that is not enabled is answered with ServiceNotEnabled
+   * instead of being run, and enabling one that is already enabled is
+   * answered with ServiceAlreadyEnabled; both outcomes mean it is on. The
+   * reply is taken by tag, so the profile bookkeeping in cls.Scope never sees
+   * an enable it did not ask for.
+   *
+   * @param {String} method The request method the command needs. The
+   *        interface is generated from the host's own protocol description,
+   *        so it exists if and only if this browser declares that command.
+   * @param {Function} on_ready Called with the service once it can be used.
+   * @param {Function} on_unavailable Called with the status that refused the
+   *        enable, or null when the host does not offer the command at all.
+   *        May be called before this function returns.
+   */
+  var with_desktop_utils = function(method, on_ready, on_unavailable)
+  {
+    var service = window.services && window.services['desktop-utils'];
+    if (!service || !service[method])
+    {
+      on_unavailable(null);
+      return;
+    }
+    window.services.scope.requestEnable(
+      window.tagManager.set_callback(null, function(status, message)
+      {
+        if (status != SCOPE_OK && status != SCOPE_SERVICE_ALREADY_ENABLED)
+          on_unavailable(status);
+        else
+          on_ready(service);
+      }),
+      ['desktop-utils']);
+  };
+
+  /* Where the client that is running came from.
+   *
+   * The document's own URL is the one the browser resolved and followed, and
+   * neither it nor the profile folder can move while the document is loaded,
+   * so this is worked out once and kept for the session.
+   *
+   * It describes this window's own browser. Under remote debugging the host
+   * answering is not necessarily that browser, and then the profile folder
+   * belongs to the debugged one; the client cannot currently reach that state
+   * because the proxy it needs does not run any more.
+   */
+  var client_origin = {state: 'unasked', profile: ''};
+
+  /**
+   * The path of the document this client is running as.
+   *
+   * ConvertFullPathtoURL builds the URL the browser follows: it escapes the
+   * path, substitutes the platform separator for '/', and prefixes
+   * "file://localhost". The authority is optional in what comes back here, so
+   * both spellings are read. A query or a fragment is not part of the path
+   * and is dropped; the client is started with one whenever its own debug
+   * environment is asked for.
+   *
+   * @return {String} the decoded native path, or null when the client did not
+   *         come from a file: URL, which neither branch of ResolveDevToolsUrl
+   *         can produce and only the preference can.
+   */
+  var client_file_path = function()
+  {
+    var match = /^file:\/\/(?:localhost)?(\/[^?#]*)/i.exec(window.location.href);
+    if (!match)
+      return null;
+    var path = match[1];
+    // A malformed escape is not worth failing over: the undecoded path is
+    // still a true location, and the comparison below simply will not match.
+    try { path = decodeURIComponent(path); } catch (e) {}
+    // A Windows path arrives as /C:/... . That first slash is the URL's.
+    return /^\/[a-zA-Z]:[\/\\]/.test(path) ? path.slice(1) : path;
+  };
+
+  /**
+   * Whether a file path lies inside a directory.
+   *
+   * OpFolderManager appends the platform separator to every folder path it
+   * stores, but that is its behaviour rather than a promise, so a missing one
+   * is added here. Case is ignored only where the directory is a Windows
+   * path, because two Linux directories differing only in case are two
+   * directories.
+   *
+   * @param {String} path A native file path.
+   * @param {String} directory A native directory path.
+   * @return {Boolean} true when path names something below directory.
+   */
+  var path_is_inside = function(path, directory)
+  {
+    var is_windows = /^[a-zA-Z]:[\/\\]/.test(directory) ||
+                     directory.indexOf('\\') != -1;
+    var dir = directory.replace(/\\/g, '/');
+    if (dir.slice(-1) != '/')
+      dir += '/';
+    var file = path.replace(/\\/g, '/');
+    if (is_windows)
+    {
+      dir = dir.toLowerCase();
+      file = file.toLowerCase();
+    }
+    return file.indexOf(dir) == 0;
+  };
+
+  /**
+   * What to say about where the running client came from.
+   * @return {Array} one template per line, the location first.
+   */
+  var client_origin_lines = function()
+  {
+    var path = client_file_path();
+    var lines =
+    [
+      ['p', ui_strings.S_LABEL_DEVTOOLS_CLIENT_LOCATION + ': ' +
+            (path || window.location.href)]
+    ];
+    if (!path)
+      lines.push(['p', ui_strings.S_INFO_DEVTOOLS_CLIENT_ORIGIN_CONFIGURED]);
+    else if (client_origin.state == 'known')
+      // The installer writes below the same folder this reports, so a client
+      // below it is one an update put there and nothing else can be.
+      lines.push(['p', path_is_inside(path, client_origin.profile)
+                       ? ui_strings.S_INFO_DEVTOOLS_CLIENT_ORIGIN_PROFILE
+                       : ui_strings.S_INFO_DEVTOOLS_CLIENT_ORIGIN_ELSEWHERE]);
+    else if (client_origin.state == 'unavailable')
+      lines.push(['p', ui_strings.S_INFO_DEVTOOLS_CLIENT_ORIGIN_UNKNOWN]);
+    else
+      lines.push(['p', ui_strings.S_INFO_DEVTOOLS_CLIENT_ORIGIN_CHECKING]);
+    return lines;
+  };
+
+  /** Redraw the origin block, if it is on screen. */
+  var refresh_client_origin = function()
+  {
+    var block = document.getElementById('devtools-client-origin');
+    if (block)
+      block.clearAndRender(client_origin_lines());
+  };
+
+  /**
+   * Find out where the running client came from, once for the session.
+   *
+   * Does nothing when the answer is already in or cannot depend on the
+   * profile folder. GetSmallPreferencesPath has been in desktop-utils since
+   * 2.0, so this works on builds from before the update command as well.
+   */
+  var resolve_client_origin = function()
+  {
+    if (client_origin.state != 'unasked' || !client_file_path())
+      return;
+    client_origin.state = 'asking';
+
+    const PATH = 0;
+    var unavailable = function(status)
+    {
+      client_origin.state = 'unavailable';
+      refresh_client_origin();
+    };
+
+    with_desktop_utils('requestGetSmallPreferencesPath',
+      function(service)
+      {
+        service.requestGetSmallPreferencesPath(
+          window.tagManager.set_callback(null, function(status, message)
+          {
+            if (status != SCOPE_OK || !message || !message[PATH])
+            {
+              unavailable(status);
+              return;
+            }
+            client_origin.profile = message[PATH];
+            client_origin.state = 'known';
+            refresh_client_origin();
+          }), []);
+      },
+      unavailable);
+  };
+
   new Settings
   (
     // id
@@ -153,7 +347,8 @@ cls.GeneralView.create_ui_widgets = function()
         'hr',
         'ui-language',
         'hr',
-        'update-devtools-client'
+        'update-devtools-client',
+        'devtools-client-origin'
       ]
     },
     // custom templates
@@ -179,6 +374,23 @@ cls.GeneralView.create_ui_widgets = function()
             'type', 'button',
             'handler', 'update-devtools-client',
             'class', 'ui-button'
+          ]
+        ] );
+      },
+      'devtools-client-origin':
+      function(setting)
+      {
+        // Rendered before the answer is in and again from the reply, which
+        // arrives long after this template has become DOM and been handed
+        // away; the id is how the reply finds it again.
+        resolve_client_origin();
+        return (
+        [
+          'setting-composite',
+          ['div',
+            client_origin_lines(),
+            'id', 'devtools-client-origin',
+            'class', 'devtools-client-origin selectable'
           ]
         ] );
       },
@@ -254,9 +466,6 @@ cls.GeneralView.create_ui_widgets = function()
     if (target.getAttribute('disabled'))
       return;
 
-    // Scope transport status codes, as named in cls.ServiceBase's status map.
-    const OK = 0;
-    const SERVICE_ALREADY_ENABLED = 9;
     // Fields of DesktopUtils.DevToolsClientUpdate, by field number less one.
     const STATUS = 0;
     const TAG = 1;
@@ -265,7 +474,6 @@ cls.GeneralView.create_ui_widgets = function()
     const UPDATED = 1;
     const ALREADY_CURRENT = 2;
 
-    var service = window.services && window.services['desktop-utils'];
     var composite = target.parentNode;
     var info = composite.getElementsByClassName('update-devtools-client-info')[0] ||
                composite.render(['div',
@@ -287,18 +495,21 @@ cls.GeneralView.create_ui_widgets = function()
              : [];
     };
 
-    var rejected = function(status)
+    var unavailable = function(status)
     {
-      var name = cls.ServiceBase.get_status_map()[status] || String(status);
-      say([['p', ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_REJECTED
-                           .replace("%s", name)]]);
+      // A null status is a host that does not declare the command at all,
+      // which is not a refusal and does not read like one.
+      say([['p', status === null
+                 ? ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_UNSUPPORTED
+                 : ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_REJECTED
+                             .replace("%s", scope_status_name(status))]]);
     };
 
     var on_response = function(status, message)
     {
-      if (status != OK)
+      if (status != SCOPE_OK)
       {
-        rejected(status);
+        unavailable(status);
         return;
       }
       switch (message[STATUS])
@@ -321,39 +532,15 @@ cls.GeneralView.create_ui_widgets = function()
       }
     };
 
-    var on_enabled = function(status, message)
-    {
-      // A command sent to a service that is not enabled is answered with
-      // ServiceNotEnabled instead of being run, and enabling one that is
-      // already enabled is answered with ServiceAlreadyEnabled. Both of those
-      // outcomes mean the service is on, which is all this needs. The reply
-      // is taken by tag, so the profile bookkeeping in cls.Scope never sees
-      // an enable it did not ask for.
-      if (status != OK && status != SERVICE_ALREADY_ENABLED)
-      {
-        rejected(status);
-        return;
-      }
-      service.requestUpdateDevToolsClient(
-        window.tagManager.set_callback(null, on_response), []);
-    };
-
-    // The interface is generated from the host's own protocol description, so
-    // the request method is there if and only if this browser declares the
-    // command. One check covers a host that does not offer desktop-utils and a
-    // host that offers a version of it from before the command, and unlike a
-    // version comparison it cannot disagree with what the host actually has.
-    if (!service || !service.requestUpdateDevToolsClient)
-    {
-      info.clearAndRender(
-        [['p', ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_UNSUPPORTED]]);
-      return;
-    }
-
     target.setAttribute('disabled', 'disabled');
     info.clearAndRender([['p', ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_WORKING]]);
-    window.services.scope.requestEnable(
-      window.tagManager.set_callback(null, on_enabled), ['desktop-utils']);
+    with_desktop_utils('requestUpdateDevToolsClient',
+      function(service)
+      {
+        service.requestUpdateDevToolsClient(
+          window.tagManager.set_callback(null, on_response), []);
+      },
+      unavailable);
   };
 
 }

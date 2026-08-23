@@ -933,6 +933,21 @@ ui_strings.S_HTTP_TOOLTIP_WAITING = "Time spent requesting this resource";
 /* DESC: tooltip-prefix for resources that have been marked unloaded, which means they are no longer reference in the document */
 ui_strings.S_HTTP_UNREFERENCED = "Unreferenced";
 
+/* DESC: Said of the running developer tools client while the browser is being asked whether its location is inside the profile. */
+ui_strings.S_INFO_DEVTOOLS_CLIENT_ORIGIN_CHECKING = "Checking whether that is inside your profile...";
+
+/* DESC: Said of the running developer tools client when it did not come from a file, which only the Developer Tools URL preference can arrange. */
+ui_strings.S_INFO_DEVTOOLS_CLIENT_ORIGIN_CONFIGURED = "That is not a local file, so the Developer Tools URL preference named it.";
+
+/* DESC: Said of the running developer tools client when its location is outside the profile. The browser cannot tell a copy it shipped with from one the preference names, so both are stated. */
+ui_strings.S_INFO_DEVTOOLS_CLIENT_ORIGIN_ELSEWHERE = "That is not inside your profile, so it is the client Opera shipped with, unless the Developer Tools URL preference names another.";
+
+/* DESC: Said of the running developer tools client when its location is inside the profile, which is where an update installs one. */
+ui_strings.S_INFO_DEVTOOLS_CLIENT_ORIGIN_PROFILE = "That is inside your profile, which is where Update now installs a client. Deleting that directory returns Opera to the one it shipped with.";
+
+/* DESC: Said of the running developer tools client when the browser did not answer where the profile is, so its location cannot be placed. */
+ui_strings.S_INFO_DEVTOOLS_CLIENT_ORIGIN_UNKNOWN = "This browser cannot say whether that is inside your profile.";
+
 /* DESC: Information shown if the document does not hold any style sheet. */
 ui_strings.S_INFO_DOCUMENT_HAS_NO_STYLESHEETS = "This document has no style sheets";
 
@@ -1112,6 +1127,9 @@ ui_strings.S_LABEL_DELETE_ALL_WATCHES = "Delete all watches";
 
 /* DESC: Context menu entry that removes watch */
 ui_strings.S_LABEL_DELETE_WATCH = "Delete watch";
+
+/* DESC: Label in the general settings for where the running developer tools client was loaded from. The location follows it. */
+ui_strings.S_LABEL_DEVTOOLS_CLIENT_LOCATION = "Loaded from";
 
 /* DESC: Label for a button in a dialog to dismiss in so it won't be shown again */
 ui_strings.S_LABEL_DIALOG_DONT_SHOW_AGAIN = "Do not show again";
