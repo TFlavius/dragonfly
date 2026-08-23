@@ -609,6 +609,9 @@ ui_strings.S_BUTTON_TOGGLE_REMOTE_DEBUG = "Remote debug configuration";
 /* DESC: Global settings toggle */
 ui_strings.S_BUTTON_TOGGLE_SETTINGS = "Settings";
 
+/* DESC: Button label in the general settings that asks the browser to install a newer developer tools client. Nothing else ever starts an update. */
+ui_strings.S_BUTTON_UPDATE_DEVTOOLS_CLIENT = "Update now";
+
 /* DESC: Button label to update the screenshot */
 ui_strings.S_BUTTON_UPDATE_SCREESHOT = "Update screenshot";
 
@@ -990,6 +993,24 @@ ui_strings.S_INFO_STYLESHEET_HAS_NO_RULES = "This style sheet has no rules";
 /* DESC: The info text to notify the user that only a part of the search results are displayed. */
 ui_strings.S_INFO_TOO_MANY_SEARCH_RESULTS = "Displaying %(MAX)s of %(COUNT)s";
 
+/* DESC: Result of updating the developer tools client, when the browser already has the newest release and installed nothing. */
+ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_CURRENT = "The developer tools client is already the newest release.";
+
+/* DESC: Result of updating the developer tools client, when the browser tried and could not. %s is the reason the browser gave. */
+ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_FAILED = "The update failed: %s";
+
+/* DESC: Result of updating the developer tools client, when the browser answered with a protocol error instead of a result. %s is the name of the error. */
+ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_REJECTED = "The browser refused the request: %s";
+
+/* DESC: Result of updating the developer tools client, when this browser has no such command and nothing was sent to it. */
+ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_UNSUPPORTED = "This browser cannot update the developer tools client.";
+
+/* DESC: Result of updating the developer tools client, when a newer release was installed. It runs the next time the developer tools are opened. */
+ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_UPDATED = "A newer developer tools client was installed. Close and reopen the developer tools to run it.";
+
+/* DESC: Shown while the browser is being asked to update the developer tools client and has not answered yet. */
+ui_strings.S_INFO_UPDATE_DEVTOOLS_CLIENT_WORKING = "Asking the browser to update the developer tools client...";
+
 /* DESC: Dragonfly is waiting for host connection */
 ui_strings.S_INFO_WAITING_FORHOST_CONNECTION = "Waiting for a host connection on port %s.";
 
@@ -1217,6 +1238,12 @@ ui_strings.S_LABEL_STORAGE_UPDATE = "Update";
 
 /* DESC: Tab size in source view. */
 ui_strings.S_LABEL_TAB_SIZE = "Tab Size";
+
+/* DESC: Label of the general setting that asks the browser to install a newer developer tools client. */
+ui_strings.S_LABEL_UPDATE_DEVTOOLS_CLIENT = "Developer tools client";
+
+/* DESC: Label for the release of the developer tools client the browser reports after an update. The release tag follows it. */
+ui_strings.S_LABEL_UPDATE_DEVTOOLS_CLIENT_RELEASE = "Installed release";
 
 /* DESC: Area as in size. choices are 10 x 10, and so on. */
 ui_strings.S_LABEL_UTIL_AREA = "Area";
