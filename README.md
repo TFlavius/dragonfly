@@ -16,7 +16,7 @@ The developer tools client for the Presto engine.
 
     ./build.sh
 
-Produces `build/`, in which the scripts and stylesheets of `src/` have become one of each. Nothing has to be installed first; `df2` lives in `tools/df2` and needs Python 3.9 or later.
+Produces `build/`, with one client document and script bundle for every maintained localization and one shared stylesheet. Nothing has to be installed first; `df2` lives in `tools/df2` and needs Python 3.9 or later.
 
 ## Working on the client
 
@@ -33,6 +33,8 @@ The historical workflow used `dragonkeeper`, a proxy that served `src/` unbuilt 
 `src/ui-strings` holds them and is now where they are edited. Originally it was generated output, and the authoritative strings lived in Opera's translation infrastructure as .po files that were never public; that is gone.
 
 `tools/po2js.py` converts a .po file to the JavaScript form, and the client can load one at run time from its general settings.
+
+The default build includes every maintained translation in the same output directory. Each localized script begins with the complete English strings as fallbacks and then applies the available translated strings.
 
 Translations currently offered:
   Беларуская (be), Български (bg), Česky (cs), Deutsch (de), U.S. English (en),

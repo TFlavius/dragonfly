@@ -71,17 +71,17 @@ jobs:
           ARCHIVE: ${{ steps.name.outputs.archive }}
         run: |
           set -eu
-          # Exactly the files the browser stages, in the layout it stages them
-          # in, so that unpacking this over an installed client replaces it
-          # rather than merging into it. defs/ and fall-back-urls.json are build
-          # products the client does not read at run time and are left out.
+          # The complete generated client, under the directory the browser
+          # installs, so that one update carries every localization. defs/ and
+          # fall-back-urls.json are build products the client does not read at
+          # run time and are left out.
           staging="$(mktemp -d)/dragonfly"
           mkdir -p "$staging/script" "$staging/style"
-          cp build/AUTHORS             "$staging/AUTHORS"
-          cp build/client-en.xml       "$staging/client-en.xml"
-          cp build/client.xml          "$staging/client.xml"
-          cp build/script/dragonfly.js "$staging/script/dragonfly.js"
-          cp build/style/dragonfly.css "$staging/style/dragonfly.css"
+          cp build/AUTHORS                 "$staging/AUTHORS"
+          cp build/client-*.xml            "$staging/"
+          cp build/client.xml              "$staging/client.xml"
+          cp build/script/dragonfly-*.js   "$staging/script/"
+          cp build/style/dragonfly.css     "$staging/style/dragonfly.css"
           # Named Apache-2.0 rather than LICENSE, because that is the name the
           # browser's bundled copy carries and the two layouts have to agree.
           cp LICENSE                   "$staging/Apache-2.0"
@@ -103,19 +103,23 @@ jobs:
           ARCHIVE: ${{ steps.name.outputs.archive }}
         run: |
           set -eu
-          cat > /tmp/expected-layout <<'LAYOUT'
-          dragonfly/
-          dragonfly/Apache-2.0
-          dragonfly/AUTHORS
-          dragonfly/client-en.xml
-          dragonfly/client.xml
-          dragonfly/script/
-          dragonfly/script/dragonfly.js
-          dragonfly/style/
-          dragonfly/style/dragonfly.css
-          LAYOUT
+          {
+            printf '%s\n' \
+              dragonfly/ \
+              dragonfly/Apache-2.0 \
+              dragonfly/AUTHORS \
+              dragonfly/client.xml \
+              dragonfly/script/ \
+              dragonfly/style/ \
+              dragonfly/style/dragonfly.css
+            for file in build/client-*.xml; do
+              printf 'dragonfly/%s\n' "${file##*/}"
+            done
+            for file in build/script/dragonfly-*.js; do
+              printf 'dragonfly/script/%s\n' "${file##*/}"
+            done
+          } | sort > /tmp/expected-layout
           unzip -Z1 "$ARCHIVE" | sort > /tmp/actual-layout
-          sort -o /tmp/expected-layout /tmp/expected-layout
           if ! diff -u /tmp/expected-layout /tmp/actual-layout; then
             echo "archive layout does not match the layout the browser stages" >&2
             exit 1
