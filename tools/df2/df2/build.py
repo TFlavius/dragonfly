@@ -47,6 +47,7 @@ _re_script = re.compile(r"\s?<script +src=\"(?P<src>[^\"]*)\"")
 _re_css = re.compile(r"\s?<link +rel=\"stylesheet\" +href=\"(?P<href>[^\"]*)\"/>")
 _re_condition = re.compile(r"\s+if\s+(not)? (.*)")
 _re_client_lang_file = re.compile(r"^client-([a-zA-Z\-]{2,5})\.xml$")
+_re_client_lang_script = re.compile(r"^dragonfly-([a-zA-Z\-]{2,5})\.js$")
 _re_linked_source = re.compile(r"(?:src|href)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')")
 _re_strict = re.compile(r"(\"|')use strict\1;?\s*")
 _re_branch = re.compile(r"# On branch\s*(.*)")
@@ -415,7 +416,6 @@ def _localize_buildout(src, langdir, option_minify):
     Note, this function knows much more than it should about the structure
     of the build. The whole thing should possibly be refactored :(
     """
-    tmpfiles = []
     scriptpath = os.path.normpath(os.path.join(src, "script/dragonfly.js"))
     fp = codecs.open(scriptpath, "r", encoding="utf_8_sig")
     script_data = fp.read()
@@ -433,29 +433,54 @@ def _localize_buildout(src, langdir, option_minify):
     englishdata = fp.read()
     fp.close()
 
-    langnames = [f for f in os.listdir(langdir) if f.startswith("ui_strings-") and f.endswith(".js") ]
-    langnames = [f.replace("ui_strings-", "").replace(".js", "") for f in langnames]
+    language_files = []
+    for filename in sorted(os.listdir(langdir)):
+        if filename.startswith("ui_strings-") and filename.endswith(".js"):
+            path = os.path.join(langdir, filename)
+            # Empty files are retained as a record of translations Dragonfly
+            # no longer offers. Do not turn one into an English-only client
+            # carrying the retired language's name.
+            if _get_string_keys(path):
+                language_files.append((filename[len("ui_strings-"):-len(".js")], path))
 
-    for lang, newscriptpath, newclientpath, path in [ (ln, "script/dragonfly-"+ln+".js", "client-"+ln+".xml", os.path.join(langdir, "ui_strings-"+ln+".js")) for ln in langnames ]:
+    langnames = set(lang for lang, path in language_files)
+    if "en" not in langnames:
+        raise ValueError("the English strings file contains no strings")
+
+    for filename in os.listdir(src):
+        match = _re_client_lang_file.match(filename)
+        if match and match.group(1) not in langnames:
+            os.unlink(os.path.join(src, filename))
+
+    scriptdir = os.path.dirname(scriptpath)
+    for filename in os.listdir(scriptdir):
+        match = _re_client_lang_script.match(filename)
+        if match and match.group(1) not in langnames:
+            os.unlink(os.path.join(scriptdir, filename))
+
+    for lang, path in language_files:
+        newscriptpath = "script/dragonfly-" + lang + ".js"
+        newclientpath = "client-" + lang + ".xml"
         newscript = codecs.open(os.path.join(src,newscriptpath), "w", encoding="utf_8_sig")
         newclient = codecs.open(os.path.join(src, newclientpath), "w", encoding="utf_8_sig")
 
         if not option_minify:
-            newscript.write(_concatcomment % englishfile)
+            newscript.write(_concatcomment % "./ui-strings/ui_strings-en.js")
         newscript.write(englishdata)
-        langfile = codecs.open(path, "r", encoding="utf_8_sig")
-        if not option_minify:
-            newscript.write(_concatcomment % path)
-        newscript.write(langfile.read())
+        langfile = None
+        if lang != "en":
+            langfile = codecs.open(path, "r", encoding="utf_8_sig")
+            if not option_minify:
+                newscript.write(_concatcomment % ("./ui-strings/" + os.path.basename(path)))
+            newscript.write(langfile.read())
         newscript.write(script_data)
         newclient.write(clientdata.replace("dragonfly.js", "dragonfly" + "-" + lang +".js"))
         newclient.close()
-        langfile.close()
+        if langfile:
+            langfile.close()
         newscript.close()
 
     os.unlink(os.path.join(src, "script/dragonfly.js"))
-    while tmpfiles:
-        os.unlink(tmpfiles.pop())
 
 
 def _get_bad_encoding_files(src):
@@ -1343,4 +1368,3 @@ def setup_subparser(subparsers, config):
 
 if __name__ == "__main__":
     sys.exit(main())
-

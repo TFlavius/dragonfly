@@ -90,7 +90,7 @@
 			/**
 			  * Setting to specify if a build should be translated.
 			  */
-			"translate": false,
+			"translate": true,
 			/**
 			  * Setting to specify if the JS files in destination should
 			  * be minified.
