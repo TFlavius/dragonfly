@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dragonfly - IndexedDB model</title>
+  <link rel="stylesheet" href="qunit/qunit.css" media="screen">
+  <script src="qunit/qunit.js"></script>
+  <script>
+    window.cls = {TagManager: {IGNORE_RESPONSE: 1}};
+    window.app = {profiles: {DEFAULT: 1}};
+    window.onerror = function(message, url, line)
+    {
+      if (location.search.indexOf("?report") == 0)
+        document.title = "IndexedDB QUnit error: " + message;
+    };
+    QUnit.done = function(bad, all)
+    {
+      if (location.search.indexOf("?report") == 0)
+        document.title = "IndexedDB QUnit: " + bad + "/" + all;
+    };
+
+    function MockTags()
+    {
+      this.callbacks = {};
+      this.next = 2;
+      this.set_callback = function(object, method, args)
+      {
+        var tag = this.next++;
+        this.callbacks[tag] = [object, method, args];
+        return tag;
+      };
+      this.deliver = function(tag, status, message)
+      {
+        var callback = this.callbacks[tag];
+        delete this.callbacks[tag];
+        callback[1].apply(callback[0], [status, message].concat(callback[2]));
+      };
+    }
+
+    function MockMessages()
+    {
+      this.listeners = {};
+      this.addListener = function(name, callback)
+      {
+        (this.listeners[name] || (this.listeners[name] = [])).push(callback);
+      };
+      this.post = function(name, message)
+      {
+        (this.listeners[name] || []).forEach(function(callback) { callback(message); });
+      };
+    }
+
+    function MockService(implemented)
+    {
+      this.is_implemented = implemented;
+      this.calls = [];
+      var self = this;
+      ["ListDatabases", "GetDatabaseSchema", "ReadEntries", "DeleteRecord", "ClearObjectStore", "DeleteDatabase", "Cancel"].forEach(function(command)
+      {
+        self["request" + command] = function(tag, message)
+        {
+          self.calls.push({command: command, tag: tag, message: message});
+        };
+      });
+    }
+
+    function create_model(implemented)
+    {
+      var service = new MockService(implemented);
+      var tags = new MockTags();
+      var messages = new MockMessages();
+      var runtimes = {
+        getSelectedRuntimeId: function() { return 7; },
+        getRuntime: function(id) { return {runtime_id: id, uri: "https://example.test/"}; }
+      };
+      return {model: new cls.IndexedDBData(service, tags, messages, runtimes), service: service, tags: tags, messages: messages};
+    }
+  </script>
+  <script src="../src/storage/indexeddb_data.js"></script>
+  <script>
+    test("unavailable service degrades without a request", function()
+    {
+      var fixture = create_model(false);
+      fixture.model.refresh();
+      equal(fixture.model.state, "unavailable");
+      equal(fixture.model.runtime_id, 7);
+      equal(fixture.service.calls.length, 0);
+    });
+
+    test("database, schema and bounded page requests form one asynchronous chain", function()
+    {
+      var fixture = create_model(true);
+      fixture.model.refresh();
+      deepEqual(fixture.service.calls[0].message, [7, 1]);
+      fixture.tags.deliver(fixture.service.calls[0].tag, 0, [[["db", 2]]]);
+      equal(fixture.service.calls[1].command, "GetDatabaseSchema");
+      deepEqual(fixture.service.calls[1].message, [7, 2, "db"]);
+      fixture.tags.deliver(fixture.service.calls[1].tag, 0, ["db", 2, [["store", "\"id\"", false, [["by_name", "\"name\"", false, false]]]]]);
+      equal(fixture.service.calls[2].command, "ReadEntries");
+      deepEqual(fixture.service.calls[2].message, [7, 3, "db", "store", null, 50, null, null]);
+      fixture.tags.deliver(fixture.service.calls[2].tag, 0, [[["1", "1", "Object #0 {}", "TOKEN", [], false]], true, "NEXTKEY", "NEXTPRIMARY"]);
+      equal(fixture.model.state, "ready");
+      equal(fixture.model.entries[0].value, "Object #0 {}");
+      ok(fixture.model.has_more);
+      fixture.model.next_page();
+      deepEqual(fixture.service.calls[3].message, [7, 4, "db", "store", null, 50, "NEXTKEY", "NEXTPRIMARY"]);
+    });
+
+    test("record deletion returns the opaque primary-key token", function()
+    {
+      var fixture = create_model(true);
+      fixture.model.runtime_id = 7;
+      fixture.model.databases = [{name: "db", version: 1}];
+      fixture.model.database_index = 0;
+      fixture.model.schema = {object_stores: [{name: "store", indexes: []}]};
+      fixture.model.store_index = 0;
+      fixture.model.entries = [{primary_key: "visible", primary_key_token: "OPAQUE"}];
+      fixture.model.delete_record(0);
+      equal(fixture.service.calls[0].command, "DeleteRecord");
+      deepEqual(fixture.service.calls[0].message, [7, 1, "db", "store", "OPAQUE"]);
+      fixture.tags.deliver(fixture.service.calls[0].tag, 0, [1]);
+      equal(fixture.service.calls[1].command, "ReadEntries");
+    });
+
+    test("superseded requests are cancelled and stale replies are ignored", function()
+    {
+      var fixture = create_model(true);
+      fixture.model.refresh();
+      var stale_tag = fixture.service.calls[0].tag;
+      fixture.model.refresh();
+      equal(fixture.service.calls[1].command, "Cancel");
+      deepEqual(fixture.service.calls[1].message, [1]);
+      fixture.tags.deliver(stale_tag, 0, [[["stale", 1]]]);
+      equal(fixture.model.databases.length, 0);
+      equal(fixture.model.state, "loading");
+    });
+  </script>
+</head>
+<body>
+  <h1 id="qunit-header">Dragonfly - IndexedDB model</h1>
+  <h2 id="qunit-banner"></h2>
+  <div id="qunit-testrunner-toolbar"></div>
+  <h2 id="qunit-userAgent"></h2>
+  <ol id="qunit-tests"></ol>
+</body>
+</html>

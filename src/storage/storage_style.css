@@ -173,3 +173,106 @@ input[type='datetime-local']
 .storage_view .sortable-table td.align-right {
   padding: 0 5px 0 5px;
 }
+
+.indexeddb-panel {
+  position: relative;
+}
+
+.indexeddb-toolbar {
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.indexeddb-runtime {
+  display: inline-block;
+  max-width: 60%;
+  margin-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.indexeddb-toolbar button {
+  float: right;
+}
+
+.indexeddb-navigation {
+  float: left;
+  width: 220px;
+  margin-right: 16px;
+  overflow: auto;
+}
+
+.indexeddb-navigation ul {
+  margin: 3px 0 6px 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.indexeddb-navigation button {
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.indexeddb-navigation .selected > button,
+.indexeddb-database.selected > button {
+  font-weight: bold;
+}
+
+.indexeddb-content {
+  margin-left: 236px;
+}
+
+.indexeddb-content h2,
+.indexeddb-content h3 {
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.indexeddb-entry-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.indexeddb-entry-table th,
+.indexeddb-entry-table td {
+  padding: 4px;
+  border: 1px solid #ccc;
+  text-align: left;
+  vertical-align: top;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.indexeddb-entry-table pre {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.indexeddb-attachments {
+  margin: 4px 0 0 16px;
+  padding: 0;
+}
+
+.indexeddb-pagination {
+  margin: 8px 0;
+  text-align: center;
+}
+
+.indexeddb-page-number {
+  margin: 0 8px;
+}
+
+.indexeddb-danger {
+  color: #900;
+}
+
+.indexeddb-loading {
+  position: absolute;
+  top: 4px;
+  right: 90px;
+}
