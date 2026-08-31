@@ -260,6 +260,10 @@ window.app.builders.EcmascriptDebugger["6.0"] = function(service)
                         "widget_preferences");
     new cls.StorageViewActions("widget_preferences");
 
+    window.indexed_db = new cls.IndexedDBData();
+    new cls.IndexedDBView("indexed_db", ui_strings.M_VIEW_LABEL_INDEXED_DB, window.indexed_db);
+    new cls.IndexedDBViewActions("indexed_db", window.indexed_db);
+
     /* the following views must be created to get entry in the Settings tab */
 
     /* Environment */

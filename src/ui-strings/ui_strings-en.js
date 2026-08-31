@@ -1863,3 +1863,24 @@ ui_strings.S_TOGGLE_PAUSED_UPDATING_NETWORK_VIEW = "Pause updating network activ
 /* DESC: String shown instead of filename when file name is missing */
 ui_strings.S_UNKNOWN_SCRIPT = "(Unknown script)";
 
+/* DESC: IndexedDB developer-tools panel labels and messages. */
+ui_strings.M_VIEW_LABEL_INDEXED_DB = "IndexedDB";
+ui_strings.S_INFO_INDEXED_DB_UNAVAILABLE = "IndexedDB inspection is unavailable in this browser.";
+ui_strings.S_INFO_INDEXED_DB_NO_RUNTIME = "Select an inspected runtime to view its IndexedDB databases.";
+ui_strings.S_INFO_INDEXED_DB_NO_DATABASES = "The selected runtime has no IndexedDB databases.";
+ui_strings.S_INFO_INDEXED_DB_NO_STORES = "This database has no object stores.";
+ui_strings.S_INFO_INDEXED_DB_EMPTY_STORE = "This object store contains no records on this page.";
+ui_strings.S_INFO_INDEXED_DB_LOADING = "Loading IndexedDB data...";
+ui_strings.S_LABEL_INDEXED_DB_RECORDS = "Records";
+ui_strings.S_LABEL_INDEXED_DB_PRIMARY_KEY = "Primary key";
+ui_strings.S_LABEL_INDEXED_DB_KEY_PATH = "Key path";
+ui_strings.S_LABEL_INDEXED_DB_AUTO_INCREMENT = "auto increment";
+ui_strings.S_LABEL_INDEXED_DB_PREVIOUS_PAGE = "Previous";
+ui_strings.S_LABEL_INDEXED_DB_NEXT_PAGE = "Next";
+ui_strings.S_LABEL_INDEXED_DB_PAGE = "Page %s";
+ui_strings.S_LABEL_INDEXED_DB_DELETE_RECORD = "Delete record";
+ui_strings.S_LABEL_INDEXED_DB_CLEAR_STORE = "Clear object store";
+ui_strings.S_LABEL_INDEXED_DB_DELETE_DATABASE = "Delete database";
+ui_strings.D_INDEXED_DB_DELETE_RECORD = "Delete the record with primary key %s?";
+ui_strings.D_INDEXED_DB_CLEAR_STORE = "Delete every record in object store %s?";
+ui_strings.D_INDEXED_DB_DELETE_DATABASE = "Delete IndexedDB database %s?";

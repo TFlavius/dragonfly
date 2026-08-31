@@ -282,6 +282,7 @@ window.app.build_application = function(on_services_created, on_services_enabled
     'document-manager',
     'profiler',
     'overlay',
+    'indexed-db',
     'desktop-utils'
   ].forEach(create_raw_interface);
   var params = this.helpers.parse_url_arguments();
@@ -399,4 +400,3 @@ window.onload = function()
   new OperaDBLclickMenuController();
   window.app.build_application();
 }
-

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dragonfly - IndexedDB model</title>
+  <link rel="stylesheet" href="qunit/qunit.css" media="screen">
+  <script src="qunit/qunit.js"></script>
+  <script>
+    window.cls = {TagManager: {IGNORE_RESPONSE: 1}};
+    window.app = {profiles: {DEFAULT: 1}};
+    window.ui_strings = {
+      M_VIEW_LABEL_INDEXED_DB: "IndexedDB",
+      S_INFO_INDEXED_DB_UNAVAILABLE: "Unavailable",
+      S_INFO_INDEXED_DB_NO_RUNTIME: "No runtime",
+      S_INFO_INDEXED_DB_NO_DATABASES: "No databases",
+      S_INFO_INDEXED_DB_NO_STORES: "No stores",
+      S_INFO_INDEXED_DB_EMPTY_STORE: "Empty store",
+      S_INFO_INDEXED_DB_LOADING: "Loading",
+      S_LABEL_INDEXED_DB_RECORDS: "Records",
+      S_LABEL_INDEXED_DB_PRIMARY_KEY: "Primary key",
+      S_LABEL_INDEXED_DB_PREVIOUS_PAGE: "Previous",
+      S_LABEL_INDEXED_DB_NEXT_PAGE: "Next",
+      S_LABEL_INDEXED_DB_PAGE: "Page %s",
+      S_LABEL_INDEXED_DB_DELETE_RECORD: "Delete record",
+      S_LABEL_INDEXED_DB_DELETE_DATABASE: "Delete database",
+      S_LABEL_INDEXED_DB_CLEAR_STORE: "Clear store",
+      S_LABEL_INDEXED_DB_KEY_PATH: "Key path",
+      S_LABEL_INDEXED_DB_AUTO_INCREMENT: "auto increment",
+      S_LABEL_STORAGE_KEY: "Key",
+      S_LABEL_STORAGE_UPDATE: "Refresh",
+      S_LABEL_COOKIE_MANAGER_COOKIE_VALUE: "Value"
+    };
+    window.onerror = function(message, url, line)
+    {
+      if (location.search.indexOf("?report") == 0)
+        document.title = "IndexedDB QUnit error: " + message;
+    };
+    QUnit.done = function(bad, all)
+    {
+      if (location.search.indexOf("?report") == 0)
+        document.title = "IndexedDB QUnit: " + bad + "/" + all;
+    };
+
+    function MockTags()
+    {
+      this.callbacks = {};
+      this.next = 2;
+      this.set_callback = function(object, method, args)
+      {
+        var tag = this.next++;
+        this.callbacks[tag] = [object, method, args];
+        return tag;
+      };
+      this.deliver = function(tag, status, message)
+      {
+        var callback = this.callbacks[tag];
+        delete this.callbacks[tag];
+        callback[1].apply(callback[0], [status, message].concat(callback[2]));
+      };
+    }
+
+    function MockMessages()
+    {
+      this.listeners = {};
+      this.addListener = function(name, callback)
+      {
+        (this.listeners[name] || (this.listeners[name] = [])).push(callback);
+      };
+      this.post = function(name, message)
+      {
+        (this.listeners[name] || []).forEach(function(callback) { callback(message); });
+      };
+    }
+
+    function MockService(implemented)
+    {
+      this.is_implemented = implemented;
+      this.is_enabled = implemented;
+      this.calls = [];
+      var self = this;
+      ["ListDatabases", "GetDatabaseSchema", "ReadEntries", "DeleteRecord", "ClearObjectStore", "DeleteDatabase", "Cancel"].forEach(function(command)
+      {
+        self["request" + command] = function(tag, message)
+        {
+          self.calls.push({command: command, tag: tag, message: message});
+        };
+      });
+    }
+
+    function MockScope()
+    {
+      this.calls = [];
+      this.requestEnable = function(tag, message)
+      {
+        this.calls.push({tag: tag, message: message});
+      };
+    }
+
+    function create_model(implemented, enabled)
+    {
+      var service = new MockService(implemented);
+      if (enabled === false)
+        service.is_enabled = false;
+      var tags = new MockTags();
+      var messages = new MockMessages();
+      var scope = new MockScope();
+      var runtimes = {
+        getSelectedRuntimeId: function() { return 7; },
+        getRuntime: function(id) { return {runtime_id: id, uri: "https://example.test/"}; }
+      };
+      return {model: new cls.IndexedDBData(service, tags, messages, runtimes, scope), service: service, scope: scope, tags: tags, messages: messages};
+    }
+
+    function inspect_template(node, result)
+    {
+      if (!(node instanceof Array))
+      {
+        if (node != null)
+          result.text.push(String(node));
+        return;
+      }
+      if (typeof node[0] != "string")
+      {
+        node.forEach(function(child) { inspect_template(child, result); });
+        return;
+      }
+      result.tags.push(node[0]);
+      inspect_template(node[1], result);
+      for (var index = 2; index + 1 < node.length; index += 2)
+      {
+        result.attributes[node[index]] || (result.attributes[node[index]] = []);
+        result.attributes[node[index]].push(String(node[index + 1]));
+      }
+    }
+  </script>
+  <script src="../src/storage/indexeddb_data.js"></script>
+  <script src="../src/storage/indexeddb_templates.js"></script>
+  <script>
+    test("unavailable service degrades without a request", function()
+    {
+      var fixture = create_model(false);
+      fixture.model.refresh();
+      equal(fixture.model.state, "unavailable");
+      equal(fixture.model.runtime_id, 7);
+      equal(fixture.service.calls.length, 0);
+    });
+
+    test("database, schema and bounded page requests form one asynchronous chain", function()
+    {
+      var fixture = create_model(true);
+      fixture.model.refresh();
+      deepEqual(fixture.service.calls[0].message, [7, 1]);
+      fixture.tags.deliver(fixture.service.calls[0].tag, 0, [[["db", 2]]]);
+      equal(fixture.service.calls[1].command, "GetDatabaseSchema");
+      deepEqual(fixture.service.calls[1].message, [7, 2, "db"]);
+      fixture.tags.deliver(fixture.service.calls[1].tag, 0, ["db", 2, [["store", "\"id\"", false, [["by_name", "\"name\"", false, false]]]]]);
+      equal(fixture.service.calls[2].command, "ReadEntries");
+      deepEqual(fixture.service.calls[2].message, [7, 3, "db", "store", null, 50, null, null]);
+      fixture.tags.deliver(fixture.service.calls[2].tag, 0, [[["1", "1", "Object #0 {}", "TOKEN", [], false]], true, "NEXTKEY", "NEXTPRIMARY"]);
+      equal(fixture.model.state, "ready");
+      equal(fixture.model.entries[0].value, "Object #0 {}");
+      ok(fixture.model.has_more);
+      fixture.model.next_page();
+      deepEqual(fixture.service.calls[3].message, [7, 4, "db", "store", null, 50, "NEXTKEY", "NEXTPRIMARY"]);
+    });
+
+    test("optional service is enabled on demand", function()
+    {
+      var fixture = create_model(true, false);
+      fixture.model.refresh();
+      equal(fixture.scope.calls.length, 1);
+      deepEqual(fixture.scope.calls[0].message, ["indexed-db"]);
+      equal(fixture.service.calls.length, 0);
+      fixture.tags.deliver(fixture.scope.calls[0].tag, 0, ["indexed-db"]);
+      equal(fixture.service.calls[0].command, "ListDatabases");
+      ok(fixture.service.is_enabled);
+    });
+
+    test("record deletion returns the opaque primary-key token", function()
+    {
+      var fixture = create_model(true);
+      fixture.model.runtime_id = 7;
+      fixture.model.databases = [{name: "db", version: 1}];
+      fixture.model.database_index = 0;
+      fixture.model.schema = {object_stores: [{name: "store", indexes: []}]};
+      fixture.model.store_index = 0;
+      fixture.model.entries = [{primary_key: "visible", primary_key_token: "OPAQUE"}];
+      fixture.model.delete_record(0);
+      equal(fixture.service.calls[0].command, "DeleteRecord");
+      deepEqual(fixture.service.calls[0].message, [7, 1, "db", "store", "OPAQUE"]);
+      fixture.tags.deliver(fixture.service.calls[0].tag, 0, [1]);
+      equal(fixture.service.calls[1].command, "ReadEntries");
+    });
+
+    test("superseded requests are cancelled and stale replies are ignored", function()
+    {
+      var fixture = create_model(true);
+      fixture.model.refresh();
+      var stale_tag = fixture.service.calls[0].tag;
+      fixture.model.refresh();
+      equal(fixture.service.calls[1].command, "Cancel");
+      deepEqual(fixture.service.calls[1].message, [1]);
+      fixture.tags.deliver(stale_tag, 0, [[["stale", 1]]]);
+      equal(fixture.model.databases.length, 0);
+      equal(fixture.model.state, "loading");
+    });
+
+    test("unavailable panel remains visible", function()
+    {
+      var model = create_model(false).model;
+      model.runtime_id = 7;
+      model.state = "unavailable";
+      var result = {tags: [], text: [], attributes: {}};
+      inspect_template(window.templates.indexed_db.panel(model), result);
+      ok(result.attributes["class"].indexOf("indexeddb-panel padding") != -1);
+      ok(result.text.indexOf("IndexedDB") != -1);
+      ok(result.text.indexOf("Unavailable") != -1);
+    });
+
+    test("ready panel renders schema, values, attachment metadata and destructive actions", function()
+    {
+      var model = create_model(true).model;
+      model.runtime_id = 7;
+      model.state = "ready";
+      model.databases = [{name: "database", version: 3}];
+      model.database_index = 0;
+      model.schema = {version: 3, object_stores: [{name: "store", key_path: "id", auto_increment: true, indexes: [{name: "by_name"}]}]};
+      model.store_index = 0;
+      model.index_index = -1;
+      model.page_index = 0;
+      model.has_more = true;
+      model.entries = [{key: "key", primary_key: "primary", value: "Object #0 {}", value_truncated: false, attachments: [{kind: 2, size: 12, type: "text/plain", name: "note.txt"}]}];
+      model.get_database = function() { return this.databases[this.database_index]; };
+      model.get_store = function() { return this.schema.object_stores[this.store_index]; };
+      model.get_index = function() { return null; };
+      var result = {tags: [], text: [], attributes: {}};
+      inspect_template(window.templates.indexed_db.panel(model), result);
+      ok(result.text.indexOf("Object #0 {}") != -1);
+      ok(result.text.indexOf("File: 12 bytes, text/plain, note.txt") != -1);
+      ok(result.attributes["data-action"].indexOf("delete-record") != -1);
+      ok(result.attributes["data-action"].indexOf("clear-store") != -1);
+      ok(result.attributes["data-action"].indexOf("delete-database") != -1);
+      ok(result.attributes["data-action"].indexOf("next-page") != -1);
+    });
+  </script>
+</head>
+<body>
+  <h1 id="qunit-header">Dragonfly - IndexedDB model</h1>
+  <h2 id="qunit-banner"></h2>
+  <div id="qunit-testrunner-toolbar"></div>
+  <h2 id="qunit-userAgent"></h2>
+  <ol id="qunit-tests"></ol>
+</body>
+</html>
