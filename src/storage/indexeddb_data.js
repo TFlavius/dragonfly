@@ -1,10 +1,12 @@
 ﻿window.cls || (window.cls = {});
 
-cls.IndexedDBData = function(service, tag_manager, message_bus, runtimes)
+cls.IndexedDBData = function(service, tag_manager, message_bus, runtimes, scope_service)
 {
   const SUCCESS = 0;
+  const SERVICE_ALREADY_ENABLED = 9;
 
   this.service = service || window.services["indexed-db"];
+  this.scope_service = scope_service || window.services.scope;
   this.tag_manager = tag_manager || window.tag_manager;
   this.messages = message_bus || window.messages;
   this.runtimes = runtimes || window.runtimes;
@@ -24,6 +26,9 @@ cls.IndexedDBData = function(service, tag_manager, message_bus, runtimes)
   this._generation = 0;
   this._next_operation_id = 0;
   this._pending = {};
+  this._enable_pending = false;
+  this._enable_waiters = [];
+  this._enable_epoch = 0;
 
   this.is_available = function()
   {
@@ -93,8 +98,47 @@ cls.IndexedDBData = function(service, tag_manager, message_bus, runtimes)
   {
     if (this.service && this.service.requestCancel)
       for (var operation_id in this._pending)
-        this.service.requestCancel(cls.TagManager && cls.TagManager.IGNORE_RESPONSE || 1, [Number(operation_id)]);
+        this.service.requestCancel(cls.TagManager.IGNORE_RESPONSE, [Number(operation_id)]);
     this._pending = {};
+  };
+
+  this._ensure_enabled = function(callback, generation)
+  {
+    if (this.service.is_enabled)
+    {
+      callback.call(this);
+      return;
+    }
+    if (!this.scope_service || !this.scope_service.requestEnable)
+    {
+      this.state = "unavailable";
+      this.error = "";
+      this._post_update();
+      return;
+    }
+    this._enable_waiters.push({callback: callback, generation: generation});
+    if (this._enable_pending)
+      return;
+    this._enable_pending = true;
+    var enable_epoch = ++this._enable_epoch;
+    var tag = this.tag_manager.set_callback(this, function(status)
+    {
+      if (enable_epoch != this._enable_epoch)
+        return;
+      this._enable_pending = false;
+      var waiters = this._enable_waiters;
+      this._enable_waiters = [];
+      if (status != SUCCESS && status != SERVICE_ALREADY_ENABLED)
+      {
+        this._set_error(status, "Could not enable IndexedDB inspection");
+        return;
+      }
+      this.service.is_enabled = true;
+      for (var index = 0; index < waiters.length; ++index)
+        if (waiters[index].generation == this._generation)
+          waiters[index].callback.call(this);
+    });
+    this.scope_service.requestEnable(tag, ["indexed-db"]);
   };
 
   this._new_generation = function()
@@ -110,6 +154,14 @@ cls.IndexedDBData = function(service, tag_manager, message_bus, runtimes)
       this.state = "unavailable";
       this.error = "";
       this._post_update();
+      return 0;
+    }
+    if (!this.service.is_enabled)
+    {
+      this._ensure_enabled(function()
+      {
+        this._request(method, arguments_after_operation_id, callback, generation);
+      }, generation);
       return 0;
     }
     var operation_id = this._allocate_operation_id();
@@ -415,6 +467,11 @@ cls.IndexedDBData = function(service, tag_manager, message_bus, runtimes)
   this._on_reset = function()
   {
     this._new_generation();
+    this._enable_pending = false;
+    this._enable_waiters = [];
+    ++this._enable_epoch;
+    if (this.service)
+      this.service.is_enabled = false;
     this.runtime_id = 0;
     this.databases = [];
     this._reset_selection();

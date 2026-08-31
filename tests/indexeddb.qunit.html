@@ -74,6 +74,7 @@
     function MockService(implemented)
     {
       this.is_implemented = implemented;
+      this.is_enabled = implemented;
       this.calls = [];
       var self = this;
       ["ListDatabases", "GetDatabaseSchema", "ReadEntries", "DeleteRecord", "ClearObjectStore", "DeleteDatabase", "Cancel"].forEach(function(command)
@@ -85,16 +86,28 @@
       });
     }
 
-    function create_model(implemented)
+    function MockScope()
+    {
+      this.calls = [];
+      this.requestEnable = function(tag, message)
+      {
+        this.calls.push({tag: tag, message: message});
+      };
+    }
+
+    function create_model(implemented, enabled)
     {
       var service = new MockService(implemented);
+      if (enabled === false)
+        service.is_enabled = false;
       var tags = new MockTags();
       var messages = new MockMessages();
+      var scope = new MockScope();
       var runtimes = {
         getSelectedRuntimeId: function() { return 7; },
         getRuntime: function(id) { return {runtime_id: id, uri: "https://example.test/"}; }
       };
-      return {model: new cls.IndexedDBData(service, tags, messages, runtimes), service: service, tags: tags, messages: messages};
+      return {model: new cls.IndexedDBData(service, tags, messages, runtimes, scope), service: service, scope: scope, tags: tags, messages: messages};
     }
 
     function inspect_template(node, result)
@@ -148,6 +161,18 @@
       ok(fixture.model.has_more);
       fixture.model.next_page();
       deepEqual(fixture.service.calls[3].message, [7, 4, "db", "store", null, 50, "NEXTKEY", "NEXTPRIMARY"]);
+    });
+
+    test("optional service is enabled on demand", function()
+    {
+      var fixture = create_model(true, false);
+      fixture.model.refresh();
+      equal(fixture.scope.calls.length, 1);
+      deepEqual(fixture.scope.calls[0].message, ["indexed-db"]);
+      equal(fixture.service.calls.length, 0);
+      fixture.tags.deliver(fixture.scope.calls[0].tag, 0, ["indexed-db"]);
+      equal(fixture.service.calls[0].command, "ListDatabases");
+      ok(fixture.service.is_enabled);
     });
 
     test("record deletion returns the opaque primary-key token", function()

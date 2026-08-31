@@ -72,7 +72,6 @@ window.app.profiles[window.app.profiles.DEFAULT] = ["window-manager",
                                                     "console-logger",
                                                     "exec",
                                                     "ecmascript-debugger",
-                                                    "indexed-db",
                                                     "cookie-manager",
                                                     "resource-manager",
                                                     "document-manager"];
