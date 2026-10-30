@@ -33,7 +33,7 @@ except ImportError:
     from . import jsminify
 
 
-_text_exts = (".js", ".html", ".xml", ".css")
+_text_exts = (".js", ".html", ".xml", ".xhtml", ".css")
 _directive_exts = (".xml", ".html", ".xhtml") # files that may have <!-- command.. directives
 _keyword_exts = (".css", ".js", ".xml", ".html", ".xhtml", ".txt") # files we will try to do keyword interpolation on
 _license_exts = (".js", ".css") # extensions that should get a license
@@ -46,7 +46,7 @@ _re_comment = re.compile(r"""\s*<!--.*-->\s*""")
 _re_script = re.compile(r"\s?<script +src=\"(?P<src>[^\"]*)\"")
 _re_css = re.compile(r"\s?<link +rel=\"stylesheet\" +href=\"(?P<href>[^\"]*)\"/>")
 _re_condition = re.compile(r"\s+if\s+(not)? (.*)")
-_re_client_lang_file = re.compile(r"^client-([a-zA-Z\-]{2,5})\.xml$")
+_re_client_lang_file = re.compile(r"^client-([a-zA-Z\-]{2,5})\.xhtml$")
 _re_client_lang_script = re.compile(r"^dragonfly-([a-zA-Z\-]{2,5})\.js$")
 _re_linked_source = re.compile(r"(?:src|href)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')")
 _re_strict = re.compile(r"(\"|')use strict\1;?\s*")
@@ -421,7 +421,7 @@ def _localize_buildout(src, langdir, option_minify):
     script_data = fp.read()
     fp.close()
 
-    clientpath = os.path.normpath(os.path.join(src, "client-en.xml"))
+    clientpath = os.path.normpath(os.path.join(src, "client-en.xhtml"))
     fp = codecs.open(clientpath, "r", encoding="utf_8_sig")
     clientdata = fp.read()
     fp.close()
@@ -460,7 +460,7 @@ def _localize_buildout(src, langdir, option_minify):
 
     for lang, path in language_files:
         newscriptpath = "script/dragonfly-" + lang + ".js"
-        newclientpath = "client-" + lang + ".xml"
+        newclientpath = "client-" + lang + ".xhtml"
         newscript = codecs.open(os.path.join(src,newscriptpath), "w", encoding="utf_8_sig")
         newclient = codecs.open(os.path.join(src, newclientpath), "w", encoding="utf_8_sig")
 
@@ -700,7 +700,7 @@ def make_archive(src, dst, in_subdir=True):
     z.close()
 
 def make_build_archive(src, dest_dir, file_name):
-    dest = os.path.join(dest_dir, file_name.replace(".xml", ".zip"))
+    dest = os.path.join(dest_dir, os.path.splitext(file_name)[0] + ".zip")
     z = zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED)
     files = [file_name]
 
