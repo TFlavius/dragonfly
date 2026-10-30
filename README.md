@@ -20,7 +20,7 @@ Produces `build/`, with one client document and script bundle for every maintain
 
 ## Working on the client
 
-Build, then point the browser at the result: open [opera:config#DeveloperTools|DeveloperToolsURL](opera:config#DeveloperTools|DeveloperToolsURL) and set it to the `client-en.xml` in your `build/`.
+Build, then point the browser at the result: open [opera:config#DeveloperTools|DeveloperToolsURL](opera:config#DeveloperTools|DeveloperToolsURL) and set it to the `client-en.xhtml` in your `build/`.
 
 The developer tools window grants its document control of the browser, so it follows only `file:` and `opera:` URLs. Serving the client over http needs `Developer Tools Allow Any Scheme` set as well.
 

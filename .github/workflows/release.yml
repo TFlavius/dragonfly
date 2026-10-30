@@ -78,8 +78,8 @@ jobs:
           staging="$(mktemp -d)/dragonfly"
           mkdir -p "$staging/script" "$staging/style"
           cp build/AUTHORS                 "$staging/AUTHORS"
-          cp build/client-*.xml            "$staging/"
-          cp build/client.xml              "$staging/client.xml"
+          cp build/client-*.xhtml          "$staging/"
+          cp build/client.xhtml            "$staging/client.xhtml"
           cp build/script/dragonfly-*.js   "$staging/script/"
           cp build/style/dragonfly.css     "$staging/style/dragonfly.css"
           # Named Apache-2.0 rather than LICENSE, because that is the name the
@@ -108,11 +108,11 @@ jobs:
               dragonfly/ \
               dragonfly/Apache-2.0 \
               dragonfly/AUTHORS \
-              dragonfly/client.xml \
+              dragonfly/client.xhtml \
               dragonfly/script/ \
               dragonfly/style/ \
               dragonfly/style/dragonfly.css
-            for file in build/client-*.xml; do
+            for file in build/client-*.xhtml; do
               printf 'dragonfly/%s\n' "${file##*/}"
             done
             for file in build/script/dragonfly-*.js; do
